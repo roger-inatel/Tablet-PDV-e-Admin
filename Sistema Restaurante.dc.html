@@ -1,0 +1,888 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    *{box-sizing:border-box;}
+    html,body{margin:0;}
+    @keyframes mfade{from{transform:translateY(7px)}to{transform:none}}
+    @keyframes toastIn{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}
+    @keyframes ovin{from{opacity:0}to{opacity:1}}
+    @keyframes popin{from{opacity:0;transform:translateY(14px) scale(.97)}to{opacity:1;transform:none}}
+    ::-webkit-scrollbar{width:10px;height:10px}
+    ::-webkit-scrollbar-thumb{background:#cbd5e1;border-radius:9px;border:3px solid transparent;background-clip:padding-box}
+    ::-webkit-scrollbar-track{background:transparent}
+  </style>
+</helmet>
+<div style="font-family:'IBM Plex Sans','Segoe UI',sans-serif;color:#1f2937;min-height:100vh;background:#f4f6fa;-webkit-font-smoothing:antialiased">
+
+  <sc-if value="{{ isAdmin }}" hint-placeholder-val="{{ true }}">
+    <div style="display:grid;grid-template-columns:248px 1fr;min-height:100vh;background:#0f172a">
+
+      <aside style="position:sticky;top:0;align-self:start;height:100vh;overflow-y:auto;background:#0f172a;color:#f8fafc;padding:16px 12px 18px;border-right:1px solid rgba(148,163,184,.1);display:flex;flex-direction:column">
+        <div style="display:flex;gap:10px;align-items:center;padding:8px 8px 18px;border-bottom:1px solid rgba(148,163,184,.1);margin-bottom:8px">
+          <span style="width:36px;height:36px;border-radius:11px;display:inline-flex;align-items:center;justify-content:center;font-size:.82rem;font-weight:800;color:#fff;background:linear-gradient(135deg,#2563eb,#1e3a8a);box-shadow:0 6px 14px -8px rgba(37,99,235,.7)">M+</span>
+          <div style="display:grid;gap:1px;min-width:0">
+            <strong style="font-size:.92rem;font-weight:700;color:#f1f5f9">{{ brandName }}</strong>
+            <span style="color:#7b8ea6;font-size:.72rem;font-weight:500">Painel Administrativo</span>
+          </div>
+        </div>
+
+        <nav style="display:grid;align-content:start;gap:4px;flex:1 0 auto;padding:6px 0 10px">
+          <span style="padding:6px 12px 6px;color:#64748b;font-size:.63rem;font-weight:700;text-transform:uppercase;letter-spacing:.13em">Operação</span>
+          <sc-for list="{{ adminNav }}" as="nav" hint-placeholder-count="5">
+            <a onClick="{{ nav.onClick }}" style="{{ nav.style }}">
+              <span style="{{ nav.iconStyle }}">{{ nav.icon }}</span>
+              <span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ nav.label }}</span>
+              <sc-if value="{{ nav.badge }}" hint-placeholder-val="{{ false }}">
+                <span style="margin-left:auto;background:#1d4ed8;color:#eff6ff;font-size:.66rem;font-weight:700;border-radius:999px;padding:2px 8px;min-width:22px;text-align:center">{{ nav.badge }}</span>
+              </sc-if>
+            </a>
+          </sc-for>
+        </nav>
+
+        <div style="padding:12px;border-radius:12px;border:1px solid rgba(148,163,184,.12);background:rgba(255,255,255,.04);display:grid;gap:10px;margin-top:auto">
+          <div style="display:flex;gap:9px;align-items:center">
+            <span style="width:30px;height:30px;border-radius:8px;display:inline-flex;align-items:center;justify-content:center;font-size:.8rem;font-weight:800;color:#fff;background:linear-gradient(135deg,#1d4ed8,#1e3a5f)">GR</span>
+            <div style="display:grid;gap:1px;min-width:0">
+              <span style="color:#64748b;font-size:.64rem;text-transform:uppercase;letter-spacing:.1em;font-weight:700">Gerente</span>
+              <strong style="color:#e2e8f0;font-size:.84rem;font-weight:600">Roberta Dias</strong>
+            </div>
+          </div>
+          <button onClick="{{ goPdv }}" style="width:100%;display:flex;align-items:center;justify-content:center;gap:7px;padding:9px 10px;border-radius:9px;border:1px solid rgba(96,165,250,.28);background:rgba(37,99,235,.16);color:#bfdbfe;font-size:.82rem;font-weight:700;cursor:pointer;font-family:inherit">Abrir PDV do garçom →</button>
+        </div>
+      </aside>
+
+      <div style="display:flex;flex-direction:column;min-height:100vh;background:#f4f6fa;min-width:0">
+        <header style="position:sticky;top:0;z-index:20;display:flex;justify-content:space-between;gap:12px;align-items:center;padding:18px 28px;border-bottom:1px solid #e5e9f0;background:rgba(255,255,255,.92);backdrop-filter:blur(10px)">
+          <div style="display:grid;gap:4px;min-width:0">
+            <p style="margin:0;color:#64748b;font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.14em">{{ adminKicker }}</p>
+            <h1 style="margin:0;font-size:1.42rem;font-weight:800;line-height:1.1;color:#0f172a">{{ adminTitle }}</h1>
+          </div>
+          <div style="display:flex;align-items:center;gap:10px">
+            <div style="background:linear-gradient(135deg,#eff6ff,#f8fbff);color:#1f4e79;border:1px solid #d5e2ef;border-radius:14px;padding:8px 13px;display:inline-flex;flex-direction:column;gap:1px;line-height:1.2">
+              <span style="color:#64748b;font-size:.64rem;text-transform:uppercase;letter-spacing:.1em;font-weight:700">Estabelecimento</span>
+              <span style="font-weight:700;font-size:.88rem">Bistrô Central</span>
+            </div>
+            <div style="display:inline-flex;align-items:center;gap:10px;border:1px solid #dbe2ea;border-radius:14px;padding:7px 12px 7px 8px;background:#fff">
+              <span style="width:30px;height:30px;border-radius:9px;display:inline-flex;align-items:center;justify-content:center;background:linear-gradient(135deg,#1d4ed8,#1f4e79);color:#fff;font-size:.82rem;font-weight:800">GR</span>
+              <div style="display:grid;gap:1px"><strong style="font-size:.84rem">Roberta</strong><span style="font-size:.74rem;color:#64748b">Gerente</span></div>
+            </div>
+          </div>
+        </header>
+
+        <div style="padding:22px 28px 96px;min-width:0">
+
+          <sc-if value="{{ showDash }}" hint-placeholder-val="{{ true }}">
+            <div style="display:grid;gap:18px;animation:mfade .22s ease">
+              <div style="display:grid;gap:14px;grid-template-columns:repeat(auto-fit,minmax(210px,1fr))">
+                <sc-for list="{{ kpis }}" as="k" hint-placeholder-count="4">
+                  <div style="{{ k.style }}">
+                    <p style="margin:0 0 9px;color:#64748b;font-size:.8rem;text-transform:uppercase;letter-spacing:.05em;font-weight:700">{{ k.label }}</p>
+                    <p style="margin:0;font-size:1.85rem;font-weight:800;color:#0f172a;line-height:1">{{ k.value }}</p>
+                    <p style="margin:7px 0 0;color:#64748b;font-size:.84rem">{{ k.helper }}</p>
+                  </div>
+                </sc-for>
+              </div>
+
+              <div style="display:grid;gap:16px;grid-template-columns:minmax(0,1.7fr) minmax(280px,1fr)">
+                <div style="background:#fff;border:1px solid #e5e9f0;border-radius:14px;padding:18px 20px">
+                  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+                    <h2 style="margin:0;font-size:1.08rem;color:#0f172a">Comandas abertas agora</h2>
+                    <span style="font-size:.82rem;color:#64748b">{{ comandasAbertas }} mesas em atendimento</span>
+                  </div>
+                  <div style="overflow-x:auto">
+                    <table style="width:100%;border-collapse:collapse">
+                      <thead><tr>
+                        <th style="text-align:left;padding:10px 10px;font-size:.78rem;color:#334155;background:#f8fafc;font-weight:700;border-bottom:1px solid #e5e9f0">Mesa</th>
+                        <th style="text-align:left;padding:10px 10px;font-size:.78rem;color:#334155;background:#f8fafc;font-weight:700;border-bottom:1px solid #e5e9f0">Garçom</th>
+                        <th style="text-align:center;padding:10px 10px;font-size:.78rem;color:#334155;background:#f8fafc;font-weight:700;border-bottom:1px solid #e5e9f0">Itens</th>
+                        <th style="text-align:right;padding:10px 10px;font-size:.78rem;color:#334155;background:#f8fafc;font-weight:700;border-bottom:1px solid #e5e9f0">Total</th>
+                        <th style="text-align:right;padding:10px 10px;font-size:.78rem;color:#334155;background:#f8fafc;font-weight:700;border-bottom:1px solid #e5e9f0">Status</th>
+                      </tr></thead>
+                      <tbody>
+                        <sc-for list="{{ comandaRows }}" as="r" hint-placeholder-count="5">
+                          <tr style="border-bottom:1px solid #eef1f6">
+                            <td style="padding:11px 10px;font-size:.9rem;font-weight:700;color:#0f172a">{{ r.mesa }}</td>
+                            <td style="padding:11px 10px;font-size:.9rem">
+                              <span style="display:inline-flex;align-items:center;gap:8px"><span style="{{ r.avatarStyle }}">{{ r.initials }}</span>{{ r.waiter }}</span>
+                            </td>
+                            <td style="padding:11px 10px;font-size:.9rem;text-align:center;color:#475569">{{ r.items }}</td>
+                            <td style="padding:11px 10px;font-size:.9rem;text-align:right;font-weight:700;color:#0f172a">{{ r.total }}</td>
+                            <td style="padding:11px 10px;text-align:right"><span style="{{ r.chipStyle }}">{{ r.chipLabel }}</span></td>
+                          </tr>
+                        </sc-for>
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+
+                <div style="display:grid;gap:16px;align-content:start">
+                  <div style="background:#fff;border:1px solid #e5e9f0;border-radius:14px;padding:18px 20px">
+                    <h2 style="margin:0 0 14px;font-size:1.04rem;color:#0f172a">Mesas por status</h2>
+                    <div style="display:grid;gap:13px">
+                      <sc-for list="{{ mesaStatusBars }}" as="b" hint-placeholder-count="3">
+                        <div style="display:grid;gap:6px">
+                          <div style="display:flex;justify-content:space-between;font-size:.85rem"><span style="color:#334155;font-weight:600">{{ b.label }}</span><span style="color:#64748b">{{ b.count }}</span></div>
+                          <div style="height:9px;border-radius:999px;background:#eef1f6;overflow:hidden"><span style="{{ b.barStyle }}"></span></div>
+                        </div>
+                      </sc-for>
+                    </div>
+                  </div>
+                  <div style="background:#fff;border:1px solid #e5e9f0;border-radius:14px;padding:18px 20px">
+                    <h2 style="margin:0 0 13px;font-size:1.04rem;color:#0f172a">Garçons em serviço</h2>
+                    <div style="display:grid;gap:9px">
+                      <sc-for list="{{ garconsServico }}" as="g" hint-placeholder-count="3">
+                        <div style="display:flex;align-items:center;gap:10px;padding:8px 10px;border:1px solid #eef1f6;border-radius:10px;background:#fbfcfe">
+                          <span style="{{ g.avatarStyle }}">{{ g.initials }}</span>
+                          <div style="display:grid;gap:1px;flex:1;min-width:0"><strong style="font-size:.86rem;color:#0f172a">{{ g.name }}</strong><span style="font-size:.76rem;color:#64748b">{{ g.role }}</span></div>
+                          <span style="font-size:.8rem;color:#475569;font-weight:600">{{ g.mesas }} mesas</span>
+                        </div>
+                      </sc-for>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </sc-if>
+
+          <sc-if value="{{ showGarcons }}" hint-placeholder-val="{{ false }}">
+            <div style="display:grid;gap:16px;animation:mfade .22s ease">
+              <div style="background:#fff;border:1px solid #e5e9f0;border-radius:14px;padding:16px 20px;display:flex;justify-content:space-between;align-items:center;gap:14px;flex-wrap:wrap">
+                <div><h2 style="margin:0 0 3px;font-size:1.08rem;color:#0f172a">Equipe de garçons</h2><p style="margin:0;color:#64748b;font-size:.88rem">Cadastre garçons, defina o PIN de acesso ao PDV e acompanhe a carga de mesas.</p></div>
+                <button onClick="{{ noop }}" style="display:inline-flex;align-items:center;gap:7px;border:0;border-radius:9px;padding:10px 15px;background:#1f4e79;color:#fff;font-weight:700;font-size:.88rem;cursor:pointer;font-family:inherit">+ Novo garçom</button>
+              </div>
+              <div style="background:#fff;border:1px solid #e5e9f0;border-radius:14px;padding:6px 6px;overflow-x:auto">
+                <table style="width:100%;border-collapse:collapse">
+                  <thead><tr>
+                    <th style="text-align:left;padding:12px 14px;font-size:.78rem;color:#334155;background:#f8fafc;font-weight:700;border-bottom:1px solid #e5e9f0;border-radius:9px 0 0 0">Garçom</th>
+                    <th style="text-align:left;padding:12px 14px;font-size:.78rem;color:#334155;background:#f8fafc;font-weight:700;border-bottom:1px solid #e5e9f0">Login / PIN</th>
+                    <th style="text-align:center;padding:12px 14px;font-size:.78rem;color:#334155;background:#f8fafc;font-weight:700;border-bottom:1px solid #e5e9f0">Mesas atribuídas</th>
+                    <th style="text-align:center;padding:12px 14px;font-size:.78rem;color:#334155;background:#f8fafc;font-weight:700;border-bottom:1px solid #e5e9f0">Status</th>
+                    <th style="text-align:right;padding:12px 14px;font-size:.78rem;color:#334155;background:#f8fafc;font-weight:700;border-bottom:1px solid #e5e9f0;border-radius:0 9px 0 0">Ações</th>
+                  </tr></thead>
+                  <tbody>
+                    <sc-for list="{{ garconsRows }}" as="g" hint-placeholder-count="4">
+                      <tr style="border-bottom:1px solid #eef1f6">
+                        <td style="padding:13px 14px"><span style="display:inline-flex;align-items:center;gap:10px"><span style="{{ g.avatarStyle }}">{{ g.initials }}</span><span style="display:grid;gap:1px"><strong style="font-size:.9rem;color:#0f172a">{{ g.name }}</strong><span style="font-size:.76rem;color:#64748b">{{ g.role }}</span></span></span></td>
+                        <td style="padding:13px 14px;font-size:.88rem;color:#475569"><span style="font-weight:600;color:#0f172a">{{ g.login }}</span> · PIN {{ g.pin }}</td>
+                        <td style="padding:13px 14px;text-align:center;font-size:.9rem;color:#475569;font-weight:600">{{ g.mesas }}</td>
+                        <td style="padding:13px 14px;text-align:center"><span style="{{ g.chipStyle }}">{{ g.chipLabel }}</span></td>
+                        <td style="padding:13px 14px;text-align:right"><button onClick="{{ noop }}" style="border:1px solid #dbe2ea;background:#fff;color:#334155;border-radius:8px;padding:6px 12px;font-size:.82rem;font-weight:600;cursor:pointer;font-family:inherit">Editar</button></td>
+                      </tr>
+                    </sc-for>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </sc-if>
+
+          <sc-if value="{{ showMesasAdmin }}" hint-placeholder-val="{{ false }}">
+            <div style="display:grid;gap:16px;animation:mfade .22s ease">
+              <div style="background:#fff;border:1px solid #e5e9f0;border-radius:14px;padding:16px 20px;display:flex;justify-content:space-between;align-items:center;gap:14px;flex-wrap:wrap">
+                <div><h2 style="margin:0 0 3px;font-size:1.08rem;color:#0f172a">Mesas do salão</h2><p style="margin:0;color:#64748b;font-size:.88rem">Cada mesa tem um responsável. Defina abaixo qual garçom opera cada mesa.</p></div>
+                <button onClick="{{ noop }}" style="display:inline-flex;align-items:center;gap:7px;border:0;border-radius:9px;padding:10px 15px;background:#1f4e79;color:#fff;font-weight:700;font-size:.88rem;cursor:pointer;font-family:inherit">+ Nova mesa</button>
+              </div>
+              <div style="display:grid;gap:13px;grid-template-columns:repeat(auto-fill,minmax(248px,1fr))">
+                <sc-for list="{{ mesasAdmin }}" as="m" hint-placeholder-count="8">
+                  <div style="{{ m.cardStyle }}">
+                    <div style="display:flex;justify-content:space-between;align-items:flex-start">
+                      <div><div style="font-size:1.15rem;font-weight:800;color:#0f172a">Mesa {{ m.num }}</div><div style="font-size:.8rem;color:#64748b;margin-top:1px">{{ m.seats }} lugares</div></div>
+                      <span style="{{ m.chipStyle }}">{{ m.chipLabel }}</span>
+                    </div>
+                    <label style="display:grid;gap:5px;margin-top:4px">
+                      <span style="font-size:.72rem;color:#64748b;text-transform:uppercase;letter-spacing:.06em;font-weight:700">Responsável</span>
+                      <select value="{{ m.waiterId }}" onChange="{{ m.onAssign }}" style="width:100%;height:40px;border:1px solid #dbe2ea;border-radius:9px;padding:0 10px;background:#fff;font-size:.88rem;font-family:inherit;color:#0f172a">
+                        <sc-for list="{{ waiterOptions }}" as="o" hint-placeholder-count="5">
+                          <option value="{{ o.value }}">{{ o.label }}</option>
+                        </sc-for>
+                      </select>
+                    </label>
+                  </div>
+                </sc-for>
+              </div>
+            </div>
+          </sc-if>
+
+          <sc-if value="{{ showImpressoras }}" hint-placeholder-val="{{ false }}">
+            <div style="display:grid;gap:16px;animation:mfade .22s ease">
+              <div style="background:#fff;border:1px solid #e5e9f0;border-radius:14px;padding:18px 20px">
+                <h2 style="margin:0 0 3px;font-size:1.08rem;color:#0f172a">Roteamento por setor</h2>
+                <p style="margin:0 0 14px;color:#64748b;font-size:.88rem">Define para qual impressora cada tipo de item é enviado quando o garçom dispara o pedido.</p>
+                <div style="display:grid;gap:10px">
+                  <sc-for list="{{ roteamento }}" as="r" hint-placeholder-count="2">
+                    <div style="display:flex;align-items:center;gap:14px;padding:13px 15px;border:1px solid #e5e9f0;border-radius:11px;background:#fbfcfe;flex-wrap:wrap">
+                      <span style="{{ r.iconWrap }}">{{ r.icon }}</span>
+                      <div style="flex:1;min-width:160px"><strong style="font-size:.94rem;color:#0f172a;display:block">{{ r.setor }}</strong><span style="font-size:.82rem;color:#64748b">{{ r.desc }}</span></div>
+                      <span style="color:#94a3b8;font-weight:700">→</span>
+                      <span style="display:inline-flex;align-items:center;gap:7px;padding:7px 12px;border-radius:9px;background:#eff6ff;border:1px solid #d5e2ef;color:#1f4e79;font-weight:700;font-size:.85rem">{{ r.icon2 }}{{ r.printer }}</span>
+                    </div>
+                  </sc-for>
+                </div>
+              </div>
+              <div><h2 style="margin:2px 0 12px;font-size:1.08rem;color:#0f172a">Impressoras instaladas</h2>
+                <div style="display:grid;gap:14px;grid-template-columns:repeat(auto-fill,minmax(280px,1fr))">
+                  <sc-for list="{{ printerCards }}" as="p" hint-placeholder-count="3">
+                    <div style="background:#fff;border:1px solid #e5e9f0;border-radius:14px;padding:17px 18px;display:grid;gap:12px">
+                      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px">
+                        <div style="display:flex;align-items:center;gap:11px">
+                          <span style="{{ p.iconWrap }}">{{ p.icon }}</span>
+                          <div><strong style="font-size:1rem;color:#0f172a;display:block">{{ p.name }}</strong><span style="font-size:.8rem;color:#64748b">{{ p.sectorLabel }}</span></div>
+                        </div>
+                        <span style="{{ p.chipStyle }}">{{ p.chipLabel }}</span>
+                      </div>
+                      <div style="display:grid;gap:5px;font-size:.84rem;color:#475569">
+                        <div style="display:flex;justify-content:space-between"><span style="color:#94a3b8">Local</span><span style="font-weight:600;color:#334155">{{ p.location }}</span></div>
+                        <div style="display:flex;justify-content:space-between"><span style="color:#94a3b8">Modelo</span><span style="font-weight:600;color:#334155">{{ p.model }}</span></div>
+                      </div>
+                      <div style="display:flex;gap:8px">
+                        <button onClick="{{ p.onTest }}" style="flex:1;border:1px solid #dbe2ea;background:#f8fbff;color:#1f4e79;border-radius:9px;padding:9px;font-size:.84rem;font-weight:700;cursor:pointer;font-family:inherit">Testar impressão</button>
+                        <button onClick="{{ noop }}" style="border:1px solid #dbe2ea;background:#fff;color:#334155;border-radius:9px;padding:9px 13px;font-size:.84rem;font-weight:600;cursor:pointer;font-family:inherit">Editar</button>
+                      </div>
+                    </div>
+                  </sc-for>
+                </div>
+              </div>
+            </div>
+          </sc-if>
+
+          <sc-if value="{{ showProdutos }}" hint-placeholder-val="{{ false }}">
+            <div style="display:grid;gap:16px;animation:mfade .22s ease">
+              <div style="background:#fff;border:1px solid #e5e9f0;border-radius:14px;padding:16px 20px">
+                <h2 style="margin:0 0 3px;font-size:1.08rem;color:#0f172a">Cardápio</h2>
+                <p style="margin:0 0 13px;color:#64748b;font-size:.88rem">Produtos vindos do banco local. A categorização define o setor de impressão de cada item.</p>
+                <div style="display:flex;flex-wrap:wrap;gap:7px">
+                  <sc-for list="{{ prodCats }}" as="c" hint-placeholder-count="5">
+                    <button onClick="{{ c.onClick }}" style="{{ c.style }}">{{ c.label }}</button>
+                  </sc-for>
+                </div>
+              </div>
+              <div style="background:#fff;border:1px solid #e5e9f0;border-radius:14px;padding:6px;overflow-x:auto">
+                <table style="width:100%;border-collapse:collapse">
+                  <thead><tr>
+                    <th style="text-align:left;padding:12px 14px;font-size:.78rem;color:#334155;background:#f8fafc;font-weight:700;border-bottom:1px solid #e5e9f0">Produto</th>
+                    <th style="text-align:left;padding:12px 14px;font-size:.78rem;color:#334155;background:#f8fafc;font-weight:700;border-bottom:1px solid #e5e9f0">Categoria</th>
+                    <th style="text-align:center;padding:12px 14px;font-size:.78rem;color:#334155;background:#f8fafc;font-weight:700;border-bottom:1px solid #e5e9f0">Setor / impressora</th>
+                    <th style="text-align:right;padding:12px 14px;font-size:.78rem;color:#334155;background:#f8fafc;font-weight:700;border-bottom:1px solid #e5e9f0">Preço</th>
+                  </tr></thead>
+                  <tbody>
+                    <sc-for list="{{ prodRows }}" as="p" hint-placeholder-count="5">
+                      <tr style="border-bottom:1px solid #eef1f6">
+                        <td style="padding:12px 14px;font-size:.9rem;font-weight:600;color:#0f172a">{{ p.name }}</td>
+                        <td style="padding:12px 14px;font-size:.88rem;color:#475569">{{ p.category }}</td>
+                        <td style="padding:12px 14px;text-align:center"><span style="{{ p.sectorStyle }}">{{ p.sectorLabel }}</span></td>
+                        <td style="padding:12px 14px;font-size:.9rem;text-align:right;font-weight:700;color:#0f172a">{{ p.price }}</td>
+                      </tr>
+                    </sc-for>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </sc-if>
+
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ isPdv }}" hint-placeholder-val="{{ false }}">
+    <div style="min-height:100vh;display:flex;align-items:center;justify-content:center;background:radial-gradient(circle at 30% 8%,#1e293b,#0f172a 72%);padding:22px 22px 82px">
+      <div style="width:min(1240px,97vw);height:min(840px,93vh);background:#0b1220;border-radius:30px;padding:14px;box-shadow:0 40px 90px -30px rgba(0,0,0,.7),inset 0 0 0 2px rgba(148,163,184,.08)">
+        <div style="height:100%;background:#f4f6fa;border-radius:18px;overflow:hidden;display:flex;flex-direction:column;position:relative">
+
+          <sc-if value="{{ showLogin }}" hint-placeholder-val="{{ true }}">
+            <div style="flex:1;display:flex;background:radial-gradient(circle at 18% 18%,#dbeafe,#f4f7fc 48%,#e8eef7)">
+              <div style="flex:1;display:flex;flex-direction:column;justify-content:center;padding:0 7% ;max-width:50%">
+                <div style="display:flex;align-items:center;gap:13px;margin-bottom:32px">
+                  <span style="width:52px;height:52px;border-radius:15px;display:inline-flex;align-items:center;justify-content:center;color:#fff;font-weight:800;font-size:1.1rem;background:linear-gradient(135deg,#2563eb,#1e3a8a);box-shadow:0 10px 22px -10px rgba(37,99,235,.7)">M+</span>
+                  <div><div style="font-weight:800;font-size:1.4rem;color:#0f172a">{{ brandName }}</div><div style="color:#64748b;font-size:.9rem;font-weight:600">PDV do Garçom</div></div>
+                </div>
+                <h1 style="margin:0 0 7px;font-size:1.7rem;color:#0f172a;line-height:1.15">Identifique-se para começar</h1>
+                <p style="margin:0 0 22px;color:#64748b;font-size:.98rem;line-height:1.5">Toque no seu nome e digite seu PIN de 4 dígitos para abrir as mesas.</p>
+                <div style="display:grid;gap:11px;grid-template-columns:1fr 1fr">
+                  <sc-for list="{{ loginWaiters }}" as="w" hint-placeholder-count="4">
+                    <button onClick="{{ w.onPick }}" style="{{ w.style }}">
+                      <span style="{{ w.avatarStyle }}">{{ w.initials }}</span>
+                      <span style="display:grid;gap:1px;text-align:left;min-width:0"><strong style="font-size:.94rem;color:#0f172a;line-height:1.15">{{ w.name }}</strong><span style="font-size:.78rem;color:#64748b">{{ w.role }}</span></span>
+                    </button>
+                  </sc-for>
+                </div>
+              </div>
+              <div style="width:50%;background:#fff;border-left:1px solid #e5e9f0;display:flex;flex-direction:column;justify-content:center;align-items:center;padding:0 6%;box-shadow:-20px 0 60px -40px rgba(15,23,42,.4)">
+                <div style="text-align:center;margin-bottom:8px;color:#64748b;font-size:.8rem;font-weight:700;text-transform:uppercase;letter-spacing:.12em;white-space:nowrap">PIN de acesso</div>
+                <div style="font-size:1.1rem;font-weight:800;color:#0f172a;margin-bottom:18px">{{ loginPickName }}</div>
+                <div style="display:flex;gap:14px;margin-bottom:26px">
+                  <sc-for list="{{ pinDots }}" as="d" hint-placeholder-count="4">
+                    <span style="{{ d.style }}"></span>
+                  </sc-for>
+                </div>
+                <div style="display:grid;grid-template-columns:repeat(3,86px);gap:13px">
+                  <sc-for list="{{ keypad }}" as="k" hint-placeholder-count="12">
+                    <button onClick="{{ k.onClick }}" style="{{ k.style }}">{{ k.label }}</button>
+                  </sc-for>
+                </div>
+                <button onClick="{{ onEnter }}" style="{{ enterStyle }}">Entrar no PDV</button>
+              </div>
+            </div>
+          </sc-if>
+
+          <sc-if value="{{ showPdvMesas }}" hint-placeholder-val="{{ false }}">
+            <div style="flex:1;display:flex;flex-direction:column;min-height:0">
+              <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;padding:16px 24px;background:#fff;border-bottom:1px solid #e5e9f0">
+                <div style="display:flex;align-items:center;gap:12px">
+                  <span style="{{ waiterAvatarStyle }}">{{ waiterInitials }}</span>
+                  <div><div style="font-weight:800;font-size:1.05rem;color:#0f172a">Olá, {{ waiterFirst }}</div><div style="font-size:.82rem;color:#64748b">{{ waiterRole }} · Bistrô Central</div></div>
+                </div>
+                <div style="display:flex;align-items:center;gap:10px">
+                  <div style="text-align:right;line-height:1.2;margin-right:4px"><div style="font-size:.78rem;color:#64748b">Suas mesas</div><div style="font-weight:800;color:#1f4e79;font-size:1.05rem">{{ minhasMesas }}</div></div>
+                  <button onClick="{{ pdvLogout }}" style="display:inline-flex;align-items:center;gap:7px;border:1px solid #dbe2ea;background:#fff;color:#475569;border-radius:10px;padding:10px 14px;font-weight:700;font-size:.86rem;cursor:pointer;font-family:inherit">Sair</button>
+                </div>
+              </div>
+              <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;padding:14px 24px;flex-wrap:wrap">
+                <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap">
+                  <h2 style="margin:0;font-size:1.15rem;color:#0f172a">Mesas</h2>
+                  <div style="display:flex;gap:14px;font-size:.82rem;color:#64748b">
+                    <span style="display:inline-flex;align-items:center;gap:6px"><span style="width:10px;height:10px;border-radius:3px;background:#16a34a"></span>Livre</span>
+                    <span style="display:inline-flex;align-items:center;gap:6px"><span style="width:10px;height:10px;border-radius:3px;background:#2563eb"></span>Sua mesa</span>
+                    <span style="display:inline-flex;align-items:center;gap:6px"><span style="width:10px;height:10px;border-radius:3px;background:#dc2626"></span>Bloqueada</span>
+                  </div>
+                </div>
+                <div style="display:flex;gap:4px;background:#e9eef5;padding:4px;border-radius:11px">
+                  <button onClick="{{ setVarDet }}" style="{{ varDetStyle }}">Detalhado</button>
+                  <button onClick="{{ setVarComp }}" style="{{ varCompStyle }}">Compacto</button>
+                </div>
+              </div>
+              <div style="flex:1;overflow-y:auto;padding:4px 24px 24px">
+                <div style="{{ mesaGridStyle }}">
+                  <sc-for list="{{ pdvMesas }}" as="m" hint-placeholder-count="12">
+                    <button onClick="{{ m.onClick }}" style="{{ m.cardStyle }}">
+                      <div style="display:flex;justify-content:space-between;align-items:flex-start;width:100%">
+                        <span style="font-size:1.5rem;font-weight:800;color:#0f172a;line-height:1">{{ m.num }}</span>
+                        <span style="{{ m.chipStyle }}">{{ m.chipLabel }}</span>
+                      </div>
+                      <div style="font-size:.8rem;color:#64748b;text-align:left;width:100%">{{ m.seats }} lugares</div>
+                      <sc-if value="{{ showMesaDetail }}" hint-placeholder-val="{{ true }}">
+                        <div style="width:100%;margin-top:2px">
+                          <sc-if value="{{ m.locked }}" hint-placeholder-val="{{ false }}">
+                            <div style="display:flex;align-items:center;gap:7px;padding:8px 10px;border-radius:9px;background:#fef2f2;color:#991b1b;font-size:.8rem;font-weight:600"><span style="display:inline-flex">{{ lockIcon }}</span>{{ m.waiterName }}</div>
+                          </sc-if>
+                          <sc-if value="{{ m.mine }}" hint-placeholder-val="{{ false }}">
+                            <div style="display:flex;justify-content:space-between;align-items:center;padding-top:8px;border-top:1px dashed #dbe2ea"><span style="font-size:.8rem;color:#64748b">{{ m.itemCount }} itens</span><strong style="font-size:.96rem;color:#1f4e79">{{ m.total }}</strong></div>
+                          </sc-if>
+                          <sc-if value="{{ m.free }}" hint-placeholder-val="{{ false }}">
+                            <div style="padding-top:8px;border-top:1px dashed #dbe2ea;font-size:.82rem;color:#16a34a;font-weight:700">Toque para abrir →</div>
+                          </sc-if>
+                        </div>
+                      </sc-if>
+                    </button>
+                  </sc-for>
+                </div>
+              </div>
+            </div>
+          </sc-if>
+
+          <sc-if value="{{ showComanda }}" hint-placeholder-val="{{ false }}">
+            <div style="flex:1;display:flex;flex-direction:column;min-height:0">
+              <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;padding:14px 22px;background:#fff;border-bottom:1px solid #e5e9f0">
+                <div style="display:flex;align-items:center;gap:14px">
+                  <button onClick="{{ backToMesas }}" style="display:inline-flex;align-items:center;gap:6px;border:1px solid #dbe2ea;background:#fff;color:#475569;border-radius:10px;padding:10px 14px;font-weight:700;font-size:.86rem;cursor:pointer;font-family:inherit">{{ backIcon }} Mesas</button>
+                  <div><div style="font-weight:800;font-size:1.2rem;color:#0f172a">Mesa {{ comandaNum }}</div><div style="font-size:.82rem;color:#64748b">{{ comandaSeats }} lugares · {{ waiterFirst }}</div></div>
+                </div>
+                <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+                  <div style="display:flex;gap:6px">
+                    <sc-for list="{{ comandaSummary }}" as="s" hint-placeholder-count="3"><span style="{{ s.style }}">{{ s.count }} {{ s.label }}</span></sc-for>
+                  </div>
+                  <div style="display:flex;gap:4px;background:#e9eef5;padding:4px;border-radius:11px">
+                    <button onClick="{{ setComDiv }}" style="{{ comDivStyle }}">Dividido</button>
+                    <button onClick="{{ setComFoco }}" style="{{ comFocoStyle }}">Foco</button>
+                  </div>
+                </div>
+              </div>
+
+              <div style="{{ comandaBodyStyle }}">
+                <div style="display:flex;flex-direction:column;min-height:0;border-right:1px solid #e5e9f0">
+                  <div style="flex:1;overflow-y:auto;padding:18px 22px">
+                    <sc-if value="{{ comandaEmpty }}" hint-placeholder-val="{{ false }}">
+                      <div style="text-align:center;padding:60px 20px;color:#94a3b8"><div style="font-size:1.05rem;font-weight:700;color:#475569;margin-bottom:6px">Comanda vazia</div><div style="font-size:.9rem">Adicione itens pelo catálogo para começar o pedido.</div></div>
+                    </sc-if>
+                    <div style="display:grid;gap:18px">
+                      <sc-for list="{{ comandaGroups }}" as="grp" hint-placeholder-count="2">
+                        <div>
+                          <div style="display:flex;align-items:center;gap:9px;margin-bottom:9px">
+                            <span style="{{ grp.iconWrap }}">{{ grp.icon }}</span>
+                            <strong style="font-size:.95rem;color:#0f172a">{{ grp.label }}</strong>
+                            <span style="font-size:.78rem;color:#94a3b8">{{ grp.printerNote }}</span>
+                          </div>
+                          <div style="display:grid;gap:8px">
+                            <sc-for list="{{ grp.items }}" as="it" hint-placeholder-count="3">
+                              <div style="display:flex;align-items:center;gap:12px;padding:11px 13px;border:1px solid #e5e9f0;border-radius:11px;background:#fff">
+                                <div style="flex:1;min-width:0"><div style="font-size:.94rem;font-weight:700;color:#0f172a">{{ it.name }}</div><div style="display:flex;align-items:center;gap:8px;margin-top:3px"><span style="{{ it.chipStyle }}">{{ it.statusLabel }}</span><span style="font-size:.8rem;color:#64748b">{{ it.lineTotal }}</span></div></div>
+                                <sc-if value="{{ it.editable }}" hint-placeholder-val="{{ true }}">
+                                  <div style="display:flex;align-items:center;gap:8px">
+                                    <button onClick="{{ it.onDec }}" style="width:38px;height:38px;border:1px solid #dbe2ea;background:#f8fafc;border-radius:9px;font-size:1.2rem;font-weight:700;color:#475569;cursor:pointer;font-family:inherit;line-height:1">−</button>
+                                    <span style="min-width:22px;text-align:center;font-weight:800;font-size:1rem;color:#0f172a">{{ it.qty }}</span>
+                                    <button onClick="{{ it.onInc }}" style="width:38px;height:38px;border:1px solid #cfe1f5;background:#eff6ff;border-radius:9px;font-size:1.2rem;font-weight:700;color:#1f4e79;cursor:pointer;font-family:inherit;line-height:1">+</button>
+                                  </div>
+                                </sc-if>
+                                <sc-if value="{{ it.sent }}" hint-placeholder-val="{{ false }}">
+                                  <div style="display:flex;align-items:center;gap:10px"><span style="font-weight:800;font-size:1rem;color:#0f172a">{{ it.qty }}×</span><button onClick="{{ it.onAdvance }}" style="{{ it.advStyle }}">{{ it.advLabel }}</button></div>
+                                </sc-if>
+                              </div>
+                            </sc-for>
+                          </div>
+                        </div>
+                      </sc-for>
+                    </div>
+                  </div>
+                  <div style="border-top:1px solid #e5e9f0;background:#fff;padding:14px 22px;display:grid;gap:11px">
+                    <div style="display:flex;justify-content:space-between;align-items:center"><span style="font-size:.92rem;color:#64748b;font-weight:600">Total da comanda</span><strong style="font-size:1.5rem;color:#0f172a">{{ comandaTotal }}</strong></div>
+                    <div style="display:flex;gap:9px;flex-wrap:wrap">
+                      <button onClick="{{ onSendCozinha }}" style="{{ sendCozStyle }}">{{ kitIcon }} Enviar cozinha {{ pendCozLabel }}</button>
+                      <button onClick="{{ onSendBar }}" style="{{ sendBarStyle }}">{{ barIcon }} Enviar bar {{ pendBarLabel }}</button>
+                      <button onClick="{{ onFechar }}" style="flex:1;min-width:120px;border:1px solid #dbe2ea;background:#fff;color:#334155;border-radius:11px;padding:13px;font-weight:700;font-size:.92rem;cursor:pointer;font-family:inherit">Fechar conta</button>
+                    </div>
+                  </div>
+                </div>
+
+                <sc-if value="{{ showSideCatalog }}" hint-placeholder-val="{{ true }}">
+                  <div style="display:flex;flex-direction:column;min-height:0;background:#fbfcfe">
+                    <div style="padding:14px 18px 10px;background:#fff;border-bottom:1px solid #e5e9f0">
+                      <div style="font-weight:800;color:#0f172a;font-size:1rem;margin-bottom:10px">Catálogo</div>
+                      <div style="display:flex;flex-wrap:wrap;gap:6px">
+                        <sc-for list="{{ catTabs }}" as="c" hint-placeholder-count="5"><button onClick="{{ c.onClick }}" style="{{ c.style }}">{{ c.label }}</button></sc-for>
+                      </div>
+                    </div>
+                    <div style="flex:1;overflow-y:auto;padding:14px 18px;display:grid;gap:9px;align-content:start">
+                      <sc-for list="{{ catProducts }}" as="p" hint-placeholder-count="6">
+                        <button onClick="{{ p.onAdd }}" style="display:flex;justify-content:space-between;align-items:center;gap:10px;width:100%;padding:13px 15px;border:1px solid #e5e9f0;border-radius:11px;background:#fff;cursor:pointer;font-family:inherit;text-align:left">
+                          <span style="display:grid;gap:2px;min-width:0"><strong style="font-size:.92rem;color:#0f172a">{{ p.name }}</strong><span style="font-size:.8rem;color:#64748b">{{ p.price }}</span></span>
+                          <span style="width:36px;height:36px;border-radius:10px;background:#eff6ff;color:#1f4e79;display:inline-flex;align-items:center;justify-content:center;font-size:1.3rem;font-weight:700;flex-shrink:0">+</span>
+                        </button>
+                      </sc-for>
+                    </div>
+                  </div>
+                </sc-if>
+              </div>
+
+              <sc-if value="{{ showFab }}" hint-placeholder-val="{{ false }}">
+                <button onClick="{{ toggleCatalog }}" style="position:absolute;right:24px;bottom:108px;display:inline-flex;align-items:center;gap:8px;border:0;border-radius:14px;padding:15px 22px;background:#1f4e79;color:#fff;font-weight:800;font-size:.95rem;cursor:pointer;font-family:inherit;box-shadow:0 16px 30px -12px rgba(31,78,121,.6);z-index:30">+ Adicionar itens</button>
+              </sc-if>
+            </div>
+
+            <sc-if value="{{ showDrawer }}" hint-placeholder-val="{{ false }}">
+              <div onClick="{{ toggleCatalog }}" style="position:absolute;inset:0;background:rgba(15,23,42,.4);z-index:40;animation:ovin .18s ease"></div>
+              <div style="position:absolute;left:0;right:0;bottom:0;height:62%;background:#fff;border-radius:20px 20px 0 0;z-index:41;display:flex;flex-direction:column;animation:popin .22s ease;box-shadow:0 -20px 50px -20px rgba(15,23,42,.4)">
+                <div style="padding:14px 22px 10px;border-bottom:1px solid #e5e9f0">
+                  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px"><div style="font-weight:800;color:#0f172a;font-size:1.05rem">Catálogo</div><button onClick="{{ toggleCatalog }}" style="border:1px solid #dbe2ea;background:#fff;color:#475569;border-radius:9px;padding:8px 14px;font-weight:700;font-size:.85rem;cursor:pointer;font-family:inherit">Fechar</button></div>
+                  <div style="display:flex;flex-wrap:wrap;gap:6px"><sc-for list="{{ catTabs }}" as="c" hint-placeholder-count="5"><button onClick="{{ c.onClick }}" style="{{ c.style }}">{{ c.label }}</button></sc-for></div>
+                </div>
+                <div style="flex:1;overflow-y:auto;padding:14px 22px;display:grid;gap:9px;grid-template-columns:1fr 1fr;align-content:start">
+                  <sc-for list="{{ catProducts }}" as="p" hint-placeholder-count="6">
+                    <button onClick="{{ p.onAdd }}" style="display:flex;justify-content:space-between;align-items:center;gap:10px;padding:13px 15px;border:1px solid #e5e9f0;border-radius:11px;background:#fbfcfe;cursor:pointer;font-family:inherit;text-align:left">
+                      <span style="display:grid;gap:2px;min-width:0"><strong style="font-size:.92rem;color:#0f172a">{{ p.name }}</strong><span style="font-size:.8rem;color:#64748b">{{ p.price }}</span></span>
+                      <span style="width:34px;height:34px;border-radius:10px;background:#eff6ff;color:#1f4e79;display:inline-flex;align-items:center;justify-content:center;font-size:1.2rem;font-weight:700;flex-shrink:0">+</span>
+                    </button>
+                  </sc-for>
+                </div>
+              </div>
+            </sc-if>
+          </sc-if>
+
+        </div>
+      </div>
+    </div>
+
+    <sc-if value="{{ printModal }}" hint-placeholder-val="{{ false }}">
+      <div onClick="{{ closeModal }}" style="position:fixed;inset:0;background:rgba(8,12,22,.62);z-index:300;display:flex;align-items:center;justify-content:center;padding:24px;animation:ovin .16s ease">
+        <div onClick="{{ stop }}" style="width:min(460px,94vw);background:#fff;border-radius:18px;overflow:hidden;animation:popin .22s ease;box-shadow:0 40px 90px -30px rgba(0,0,0,.6)">
+          <div style="{{ pmHeadStyle }}">
+            <span style="width:42px;height:42px;border-radius:12px;background:rgba(255,255,255,.18);display:inline-flex;align-items:center;justify-content:center">{{ pmIcon }}</span>
+            <div><div style="font-weight:800;font-size:1.1rem">Enviar para {{ pmSector }}</div><div style="font-size:.84rem;opacity:.85">{{ pmPrinter }}</div></div>
+          </div>
+          <div style="padding:18px 22px">
+            <div style="font-size:.8rem;color:#64748b;text-transform:uppercase;letter-spacing:.06em;font-weight:700;margin-bottom:10px">Itens deste envio</div>
+            <div style="display:grid;gap:8px;max-height:240px;overflow-y:auto">
+              <sc-for list="{{ pmItems }}" as="it" hint-placeholder-count="2">
+                <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 12px;border:1px solid #eef1f6;border-radius:10px;background:#fbfcfe"><span style="font-size:.92rem;color:#0f172a;font-weight:600">{{ it.name }}</span><span style="font-weight:800;color:#1f4e79">{{ it.qty }}×</span></div>
+              </sc-for>
+            </div>
+            <div style="display:flex;gap:10px;margin-top:18px">
+              <button onClick="{{ closeModal }}" style="flex:1;border:1px solid #dbe2ea;background:#fff;color:#334155;border-radius:11px;padding:13px;font-weight:700;font-size:.92rem;cursor:pointer;font-family:inherit">Cancelar</button>
+              <button onClick="{{ confirmSend }}" style="flex:1;border:0;background:#1f4e79;color:#fff;border-radius:11px;padding:13px;font-weight:800;font-size:.92rem;cursor:pointer;font-family:inherit">Confirmar e imprimir</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </sc-if>
+  </sc-if>
+
+  <sc-if value="{{ showSwitcher }}" hint-placeholder-val="{{ true }}">
+    <div style="position:fixed;left:50%;bottom:16px;transform:translateX(-50%);z-index:250;display:flex;gap:4px;background:#0f172a;padding:5px;border-radius:999px;box-shadow:0 18px 40px -14px rgba(15,23,42,.6)">
+      <button onClick="{{ goAdmin }}" style="{{ adminTabStyle }}">Painel Admin</button>
+      <button onClick="{{ goPdv }}" style="{{ pdvTabStyle }}">PDV Garçom</button>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ toast }}" hint-placeholder-val="{{ false }}">
+    <div style="position:fixed;left:50%;bottom:78px;transform:translateX(-50%);z-index:400;background:#0f172a;color:#fff;padding:12px 20px;border-radius:12px;font-size:.9rem;font-weight:600;box-shadow:0 18px 40px -14px rgba(15,23,42,.6);animation:toastIn .2s ease">{{ toast }}</div>
+  </sc-if>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1280,&quot;height&quot;:860},&quot;startModule&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;admin&quot;,&quot;pdv&quot;],&quot;default&quot;:&quot;admin&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;brandName&quot;:{&quot;editor&quot;:&quot;text&quot;,&quot;default&quot;:&quot;Mesa+&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;showModuleSwitcher&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;}}">
+class Component extends DCLogic {
+  constructor(...a){
+    super(...a);
+    this.RAW = {
+      dashboard:'<rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/>',
+      users:'<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>',
+      grid:'<rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/>',
+      printer:'<polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/>',
+      box:'<path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/>',
+      lock:'<rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>',
+      back:'<line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/>',
+      flame:'<path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"/>',
+      wine:'<path d="M8 22h8"/><path d="M12 15v7"/><path d="M5 3h14l-1.5 9a5.5 5.5 0 0 1-11 0z"/>',
+    };
+    this.state = this.initState();
+  }
+
+  uid(){ this._u=(this._u||0)+1; return 'i'+this._u; }
+  fmt(v){ return 'R$ '+Number(v||0).toFixed(2).replace('.',','); }
+  icon(name,size,sw){ return React.createElement('svg',{width:size||18,height:size||18,viewBox:'0 0 24 24',fill:'none',stroke:'currentColor',strokeWidth:sw||2,strokeLinecap:'round',strokeLinejoin:'round',dangerouslySetInnerHTML:{__html:this.RAW[name]}}); }
+
+  initState(){
+    const waiters = [
+      {id:'carlos', name:'Carlos Lima', initials:'CL', color:'#2563eb', login:'@carlos', pin:'1234', role:'Garçom', status:'ATIVO'},
+      {id:'marina', name:'Marina Souza', initials:'MS', color:'#0d9488', login:'@marina', pin:'2222', role:'Garçonete', status:'ATIVO'},
+      {id:'bruno',  name:'Bruno Alves', initials:'BA', color:'#b45309', login:'@bruno', pin:'3333', role:'Garçom', status:'ATIVO'},
+      {id:'julia',  name:'Júlia Reis', initials:'JR', color:'#7c3aed', login:'@julia', pin:'4444', role:'Garçonete', status:'PAUSA'},
+    ];
+    const P = [
+      ['Bruschetta','Entradas','cozinha',24],['Bolinho de bacalhau','Entradas','cozinha',32],['Carpaccio','Entradas','cozinha',38],['Tábua de frios','Entradas','cozinha',56],
+      ['Filé à parmegiana','Pratos','cozinha',62],['Risoto de camarão','Pratos','cozinha',74],['Picanha na brasa','Pratos','cozinha',89],['Moqueca de peixe','Pratos','cozinha',78],
+      ['Petit gateau','Sobremesas','cozinha',28],['Pudim de leite','Sobremesas','cozinha',18],['Cheesecake','Sobremesas','cozinha',26],['Sorvete (2 bolas)','Sobremesas','cozinha',16],
+      ['Suco natural','Bebidas','bar',14],['Refrigerante lata','Bebidas','bar',8],['Água mineral','Bebidas','bar',6],['Água com gás','Bebidas','bar',7],
+      ['Chopp 500ml','Bar','bar',16],['Caipirinha','Bar','bar',28],['Gin tônica','Bar','bar',34],['Vinho (taça)','Bar','bar',32],
+    ];
+    const products = P.map((p,i)=>({id:'pr'+i,name:p[0],category:p[1],sector:p[2],price:p[3]}));
+    this.prodByName = {}; products.forEach(p=>this.prodByName[p.name]=p);
+    const categories = ['Entradas','Pratos','Sobremesas','Bebidas','Bar'];
+    const printers = [
+      {id:'pr1', name:'Cozinha 01', sector:'cozinha', location:'Cozinha quente', model:'Epson TM-T20', status:'ONLINE'},
+      {id:'pr2', name:'Bar 01', sector:'bar', location:'Balcão do bar', model:'Bematech MP-4200', status:'ONLINE'},
+      {id:'pr3', name:'Caixa / Conta', sector:'caixa', location:'Frente de caixa', model:'Elgin i9', status:'OFFLINE'},
+    ];
+    const T = [
+      [1,4,'livre',null,[]],
+      [2,4,'ocupada','carlos',[['Bruschetta',2,'PREPARO'],['Picanha na brasa',1,'ENVIADO'],['Chopp 500ml',2,'PRONTO']]],
+      [3,2,'ocupada','marina',[['Filé à parmegiana',1,'ENVIADO']]],
+      [4,6,'ocupada','carlos',[['Risoto de camarão',1,'PENDENTE'],['Caipirinha',1,'PENDENTE']]],
+      [5,2,'livre',null,[]],
+      [6,4,'ocupada','bruno',[['Moqueca de peixe',1,'PREPARO']]],
+      [7,4,'ocupada','carlos',[['Filé à parmegiana',1,'ENVIADO'],['Suco natural',2,'ENVIADO']]],
+      [8,6,'ocupada','marina',[['Tábua de frios',1,'PRONTO']]],
+      [9,2,'livre',null,[]],
+      [10,4,'ocupada','julia',[['Gin tônica',2,'ENVIADO']]],
+      [11,8,'ocupada','carlos',[['Tábua de frios',1,'PRONTO'],['Vinho (taça)',2,'PRONTO'],['Picanha na brasa',2,'PREPARO']]],
+      [12,4,'livre',null,[]],
+    ];
+    const tables = T.map(t=>({id:t[0],num:t[0],seats:t[1],status:t[2],waiterId:t[3],items:t[4].map(it=>this.mkItem(it[0],it[1],it[2]))}));
+    const startMod = (this.props && this.props.startModule) || 'admin';
+    return {
+      module: startMod, adminScreen:'dashboard', adminProdCat:'Entradas',
+      pdvScreen:'login', pin:'', currentWaiterId:null, loginPick:'carlos',
+      mesasVariant:'detalhado', comandaVariant:'dividido', catalogOpen:false, catCat:'Entradas',
+      activeTableId:null, printModal:null, toast:null,
+      waiters, products, categories, printers, tables,
+    };
+  }
+  mkItem(name,qty,status){ const p=this.prodByName[name]; return {key:this.uid(),productId:p.id,name:p.name,price:p.price,sector:p.sector,qty,status}; }
+
+  toast(msg){ this.setState({toast:msg}); clearTimeout(this._t); this._t=setTimeout(()=>this.setState({toast:null}),2200); }
+
+  // ---- navigation ----
+  goAdmin(){ this.setState({module:'admin'}); }
+  goPdv(){ this.setState({module:'pdv'}); }
+  setAdminScreen(s){ this.setState({adminScreen:s}); }
+  setAdminProdCat(c){ this.setState({adminProdCat:c}); }
+
+  // ---- login ----
+  pdvPick(id){ this.setState({loginPick:id, pin:''}); }
+  pinPress(d){ if(this.state.pin.length<4) this.setState({pin:this.state.pin+d}); }
+  pinBack(){ this.setState({pin:this.state.pin.slice(0,-1)}); }
+  pinClear(){ this.setState({pin:''}); }
+  onEnter(){ if(this.state.pin.length>=4){ this.setState({currentWaiterId:this.state.loginPick, pdvScreen:'mesas', pin:''}); this.toast('Bem-vindo ao PDV'); } }
+  pdvLogout(){ this.setState({pdvScreen:'login', currentWaiterId:null, pin:'', activeTableId:null}); }
+
+  // ---- tables / comanda ----
+  openTable(id){
+    const t = this.state.tables.find(x=>x.id===id);
+    if(t.status!=='livre' && t.waiterId!==this.state.currentWaiterId) return;
+    const tables = this.state.tables.map(x=> x.id===id && x.status==='livre' ? {...x,status:'ocupada',waiterId:this.state.currentWaiterId,items:x.items||[]} : x);
+    this.setState({tables, pdvScreen:'comanda', activeTableId:id, catalogOpen:false});
+  }
+  backToMesas(){ this.setState({pdvScreen:'mesas', activeTableId:null}); }
+  setMesasVariant(v){ this.setState({mesasVariant:v}); }
+  setComandaVariant(v){ this.setState({comandaVariant:v, catalogOpen:false}); }
+  toggleCatalog(){ this.setState({catalogOpen:!this.state.catalogOpen}); }
+  setCatCat(c){ this.setState({catCat:c}); }
+
+  _mapActive(fn){ return this.state.tables.map(t=> t.id===this.state.activeTableId ? {...t, items: fn(t.items)} : t); }
+  addItem(prodId){
+    const p = this.state.products.find(x=>x.id===prodId);
+    const tables = this._mapActive(items=>{
+      const out=[...items]; const i=out.findIndex(it=>it.productId===prodId && it.status==='PENDENTE');
+      if(i>=0) out[i]={...out[i],qty:out[i].qty+1}; else out.push({key:this.uid(),productId:p.id,name:p.name,price:p.price,sector:p.sector,qty:1,status:'PENDENTE'});
+      return out;
+    });
+    this.setState({tables}); this.toast(p.name+' adicionado');
+  }
+  incItem(key){ this.setState({tables:this._mapActive(items=>items.map(it=>it.key===key?{...it,qty:it.qty+1}:it))}); }
+  decItem(key){ this.setState({tables:this._mapActive(items=>items.flatMap(it=> it.key!==key?[it]: (it.qty>1?[{...it,qty:it.qty-1}]:[])))}); }
+  advanceItem(key){ const flow={ENVIADO:'PREPARO',PREPARO:'PRONTO'}; this.setState({tables:this._mapActive(items=>items.map(it=>it.key===key&&flow[it.status]?{...it,status:flow[it.status]}:it))}); }
+  sendSector(sector){
+    const t=this.state.tables.find(x=>x.id===this.state.activeTableId);
+    const pend=t.items.filter(it=>it.sector===sector && it.status==='PENDENTE');
+    if(!pend.length){ this.toast('Nenhum item pendente neste setor'); return; }
+    this.setState({printModal:{sector}});
+  }
+  confirmSend(){
+    const sector=this.state.printModal.sector;
+    const tables=this._mapActive(items=>items.map(it=> it.sector===sector && it.status==='PENDENTE' ? {...it,status:'ENVIADO'} : it));
+    this.setState({tables, printModal:null});
+    this.toast(sector==='cozinha'?'Pedido impresso na cozinha':'Pedido impresso no bar');
+  }
+  closeModal(){ this.setState({printModal:null}); }
+  fecharConta(){
+    const tables=this.state.tables.map(t=> t.id===this.state.activeTableId ? {...t,status:'livre',waiterId:null,items:[]} : t);
+    this.setState({tables, pdvScreen:'mesas', activeTableId:null});
+    this.toast('Conta fechada · mesa liberada');
+  }
+  setResponsavel(id,v){ this.setState({tables:this.state.tables.map(t=> t.id===id ? {...t,waiterId:v||null} : t)}); }
+
+  // ---- style helpers ----
+  chip(kind){
+    const m={green:['#dcfce7','#166534'],amber:['#fef3c7','#92400e'],red:['#fee2e2','#991b1b'],blue:['#dbeafe','#1e3a8a'],neutral:['#e2e8f0','#334155']};
+    const [bg,fg]=m[kind]||m.neutral;
+    return {display:'inline-flex',alignItems:'center',gap:5,padding:'4px 10px',borderRadius:999,background:bg,color:fg,fontSize:'.76rem',fontWeight:700,whiteSpace:'nowrap'};
+  }
+  avatar(color,size){ const s=size||30; return {width:s,height:s,borderRadius:Math.round(s/3.2),display:'inline-flex',alignItems:'center',justifyContent:'center',color:'#fff',fontWeight:800,fontSize:(s*0.34)+'px',background:color,flexShrink:0}; }
+  itemStatus(st){ const m={PENDENTE:['neutral','A enviar'],ENVIADO:['blue','Enviado'],PREPARO:['amber','Em preparo'],PRONTO:['green','Pronto']}; return m[st]||m.PENDENTE; }
+  total(items){ return items.reduce((s,it)=>s+it.price*it.qty,0); }
+
+  renderVals(){
+    const s=this.state;
+    const isAdmin = s.module==='admin';
+    const brandName = (this.props && this.props.brandName) || 'Mesa+';
+    const showSwitcher = (this.props && this.props.showModuleSwitcher!==undefined) ? this.props.showModuleSwitcher : true;
+    const tabBase={border:0,borderRadius:999,padding:'9px 18px',fontWeight:700,fontSize:'.86rem',cursor:'pointer',fontFamily:'inherit'};
+    const tabOn={...tabBase,background:'#fff',color:'#0f172a'};
+    const tabOff={...tabBase,background:'transparent',color:'#94a3b8'};
+
+    // ----- ADMIN NAV -----
+    const navDefs=[['dashboard','Dashboard','dashboard',null],['garcons','Garçons','users',null],['mesas','Mesas','grid',null],['impressoras','Impressoras','printer',null],['produtos','Produtos','box',null]];
+    const adminNav = navDefs.map(([key,label,ic,badge])=>{
+      const active=s.adminScreen===key;
+      return {
+        label, badge, icon:this.icon(ic,17,2.2),
+        onClick:()=>this.setAdminScreen(key),
+        style:{color:active?'#dbeafe':'#94a3b8',textDecoration:'none',minHeight:44,padding:'9px 11px',borderRadius:9,border:'1px solid '+(active?'rgba(59,130,246,.32)':'transparent'),background:active?'rgba(37,99,235,.22)':'transparent',fontSize:'.88rem',fontWeight:active?700:500,display:'flex',alignItems:'center',gap:11,cursor:'pointer'},
+        iconStyle:{width:30,height:30,borderRadius:8,display:'inline-flex',alignItems:'center',justifyContent:'center',flexShrink:0,color:active?'#93c5fd':'#64748b',background:active?'rgba(59,130,246,.3)':'rgba(255,255,255,.04)',border:'1px solid '+(active?'rgba(96,165,250,.38)':'rgba(148,163,184,.1)')},
+      };
+    });
+    const adminMeta={dashboard:['Operação','Dashboard'],garcons:['Cadastros','Garçons'],mesas:['Operação','Mesas do salão'],impressoras:['Sistema','Impressoras & setores'],produtos:['Cadastros','Produtos']}[s.adminScreen];
+
+    // ----- DASHBOARD -----
+    const occupied = s.tables.filter(t=>t.status==='ocupada');
+    const livres = s.tables.filter(t=>t.status==='livre');
+    const comandasComItens = occupied.filter(t=>t.items.length);
+    const openTotal = occupied.reduce((a,t)=>a+this.total(t.items),0);
+    const garconsAtivos = s.waiters.filter(w=>w.status==='ATIVO');
+    const kpiBase={background:'#fff',border:'1px solid #e5e9f0',borderRadius:14,padding:'16px 18px'};
+    const kpis=[
+      {label:'Mesas ocupadas',value:occupied.length+'/'+s.tables.length,helper:livres.length+' mesas livres',style:{...kpiBase,background:'linear-gradient(135deg,#f8fbff,#eef6ff)',borderColor:'#cfe1f5'}},
+      {label:'Comandas abertas',value:String(comandasComItens.length),helper:'em atendimento agora',style:kpiBase},
+      {label:'Garçons em serviço',value:garconsAtivos.length+'/'+s.waiters.length,helper:'turno atual',style:kpiBase},
+      {label:'Em aberto',value:this.fmt(openTotal),helper:'a receber nas mesas',style:kpiBase},
+    ];
+    const wById={}; s.waiters.forEach(w=>wById[w.id]=w);
+    const comandaRows = comandasComItens.map(t=>{ const w=wById[t.waiterId]; const pend=t.items.filter(i=>i.status==='PENDENTE').length; const pronto=t.items.every(i=>i.status==='PRONTO');
+      let ck='blue',cl='Em andamento'; if(pend){ck='neutral';cl='Itens a enviar';} else if(pronto){ck='green';cl='Tudo pronto';}
+      return {mesa:'Mesa '+t.num,waiter:w?w.name.split(' ')[0]:'—',initials:w?w.initials:'--',avatarStyle:this.avatar(w?w.color:'#94a3b8',26),items:t.items.reduce((a,i)=>a+i.qty,0),total:this.fmt(this.total(t.items)),chipStyle:this.chip(ck),chipLabel:cl}; });
+    const totalTables=s.tables.length;
+    const mesaStatusBars=[
+      {label:'Ocupadas',count:occupied.length,kind:'#2563eb'},
+      {label:'Livres',count:livres.length,kind:'#16a34a'},
+    ].map(b=>({label:b.label,count:b.count,barStyle:{display:'block',height:'100%',borderRadius:999,width:Math.round(b.count/totalTables*100)+'%',background:b.kind}}));
+    const garconsServico=garconsAtivos.map(w=>({name:w.name,role:w.role,initials:w.initials,avatarStyle:this.avatar(w.color,32),mesas:s.tables.filter(t=>t.waiterId===w.id).length}));
+
+    // ----- GARCONS -----
+    const stChip={ATIVO:['green','Ativo'],PAUSA:['amber','Em pausa'],INATIVO:['neutral','Inativo']};
+    const garconsRows=s.waiters.map(w=>{ const [k,l]=stChip[w.status]; return {name:w.name,role:w.role,initials:w.initials,avatarStyle:this.avatar(w.color,34),login:w.login,pin:'••••',mesas:s.tables.filter(t=>t.waiterId===w.id).length,chipStyle:this.chip(k),chipLabel:l}; });
+
+    // ----- MESAS ADMIN -----
+    const waiterOptions=[{value:'',label:'— Livre —'}].concat(s.waiters.map(w=>({value:w.id,label:w.name})));
+    const mesasAdmin=s.tables.map(t=>{ const occ=t.status==='ocupada';
+      return {num:t.num,seats:t.seats,waiterId:t.waiterId||'',onAssign:(e)=>this.setResponsavel(t.id,e.target.value),
+        chipStyle:this.chip(occ?'blue':'green'),chipLabel:occ?'Ocupada':'Livre',
+        cardStyle:{background:'#fff',border:'1px solid '+(occ?'#cfe1f5':'#e5e9f0'),borderRadius:13,padding:'15px 16px',display:'grid',gap:12}}; });
+
+    // ----- IMPRESSORAS -----
+    const iconWrapC={width:38,height:38,borderRadius:11,display:'inline-flex',alignItems:'center',justifyContent:'center',color:'#92400e',background:'#fef3c7',flexShrink:0};
+    const iconWrapB={width:38,height:38,borderRadius:11,display:'inline-flex',alignItems:'center',justifyContent:'center',color:'#1e3a8a',background:'#dbeafe',flexShrink:0};
+    const roteamento=[
+      {setor:'Refeições / Cozinha',desc:'Entradas, pratos e sobremesas',printer:'Cozinha 01',iconWrap:iconWrapC,icon:this.icon('flame',18),icon2:null},
+      {setor:'Bebidas / Bar',desc:'Bebidas, drinks e cervejas',printer:'Bar 01',iconWrap:iconWrapB,icon:this.icon('wine',18),icon2:null},
+    ];
+    const prChip={ONLINE:['green','Online'],OFFLINE:['red','Offline']};
+    const printerCards=s.printers.map(p=>{ const [k,l]=prChip[p.status]; const isCoz=p.sector==='cozinha'; const isBar=p.sector==='bar';
+      const wrap=isCoz?iconWrapC:isBar?iconWrapB:{width:38,height:38,borderRadius:11,display:'inline-flex',alignItems:'center',justifyContent:'center',color:'#334155',background:'#e2e8f0',flexShrink:0};
+      const slabel=isCoz?'Setor: Cozinha':isBar?'Setor: Bar':'Setor: Caixa';
+      return {name:p.name,sectorLabel:slabel,location:p.location,model:p.model,iconWrap:wrap,icon:this.icon('printer',18),chipStyle:this.chip(k),chipLabel:l,onTest:()=>this.toast('Página de teste enviada para '+p.name)}; });
+
+    // ----- PRODUTOS -----
+    const tabBtn=(active)=>({border:'1px solid '+(active?'#93c5fd':'#d7e0ea'),borderRadius:9,padding:'8px 14px',background:active?'#eff6ff':'#fff',color:active?'#1e3a8a':'#334155',fontSize:'.86rem',fontWeight:700,cursor:'pointer',fontFamily:'inherit'});
+    const prodCats=s.categories.map(c=>({label:c,onClick:()=>this.setAdminProdCat(c),style:tabBtn(s.adminProdCat===c)}));
+    const prodRows=s.products.filter(p=>p.category===s.adminProdCat).map(p=>({name:p.name,category:p.category,price:this.fmt(p.price),sectorLabel:p.sector==='cozinha'?'Cozinha 01':'Bar 01',sectorStyle:this.chip(p.sector==='cozinha'?'amber':'blue')}));
+
+    // ----- PDV -----
+    const isPdv=!isAdmin;
+    const cw=wById[s.currentWaiterId];
+    const showLogin=s.pdvScreen==='login';
+    const showPdvMesas=s.pdvScreen==='mesas';
+    const showComanda=s.pdvScreen==='comanda' && !!s.activeTableId;
+
+    // login
+    const loginWaiters=s.waiters.map(w=>{ const sel=s.loginPick===w.id; const paused=w.status==='PAUSA';
+      return {name:w.name,role:paused?'Em pausa':w.role,initials:w.initials,avatarStyle:this.avatar(w.color,42),onPick:()=>this.pdvPick(w.id),
+        style:{display:'flex',alignItems:'center',gap:12,padding:'13px 14px',borderRadius:13,border:'2px solid '+(sel?'#2563eb':'#e5e9f0'),background:sel?'#eff6ff':'#fff',cursor:'pointer',fontFamily:'inherit',boxShadow:sel?'0 8px 20px -10px rgba(37,99,235,.5)':'none'}}; });
+    const loginPickName=(wById[s.loginPick]||{}).name||'';
+    const pinDots=[0,1,2,3].map(i=>({style:{width:16,height:16,borderRadius:999,background:i<s.pin.length?'#1f4e79':'#e2e8f0',transition:'background .12s'}}));
+    const keyBtn={height:64,borderRadius:14,border:'1px solid #e5e9f0',background:'#fff',fontSize:'1.5rem',fontWeight:700,color:'#0f172a',cursor:'pointer',fontFamily:'inherit'};
+    const keyAlt={...keyBtn,background:'#f1f5f9',fontSize:'.95rem',color:'#475569',fontWeight:700};
+    const keypad=['1','2','3','4','5','6','7','8','9'].map(d=>({label:d,style:keyBtn,onClick:()=>this.pinPress(d)}));
+    keypad.push({label:'Limpar',style:keyAlt,onClick:()=>this.pinClear()});
+    keypad.push({label:'0',style:keyBtn,onClick:()=>this.pinPress('0')});
+    keypad.push({label:'←',style:keyAlt,onClick:()=>this.pinBack()});
+    const enterOk=s.pin.length>=4;
+    const enterStyle={marginTop:24,width:'100%',maxWidth:294,border:0,borderRadius:14,padding:'16px',fontSize:'1rem',fontWeight:800,fontFamily:'inherit',cursor:enterOk?'pointer':'not-allowed',background:enterOk?'#1f4e79':'#cbd5e1',color:'#fff'};
+
+    // pdv mesas
+    const mine=s.tables.filter(t=>t.status==='ocupada'&&t.waiterId===s.currentWaiterId);
+    const showMesaDetail=s.mesasVariant==='detalhado';
+    const segOn={border:0,borderRadius:8,padding:'8px 15px',background:'#fff',color:'#0f172a',fontWeight:700,fontSize:'.84rem',cursor:'pointer',fontFamily:'inherit',boxShadow:'0 2px 6px -2px rgba(15,23,42,.2)'};
+    const segOff={border:0,borderRadius:8,padding:'8px 15px',background:'transparent',color:'#64748b',fontWeight:700,fontSize:'.84rem',cursor:'pointer',fontFamily:'inherit'};
+    const cardPad=showMesaDetail?'16px':'13px';
+    const pdvMesas=s.tables.map(t=>{
+      const free=t.status==='livre';
+      const isMine=t.status==='ocupada'&&t.waiterId===s.currentWaiterId;
+      const locked=t.status==='ocupada'&&t.waiterId!==s.currentWaiterId;
+      const w=wById[t.waiterId];
+      let accent='#16a34a', chipK='green', chipL='Livre';
+      if(isMine){accent='#2563eb';chipK='blue';chipL='Ocupada';}
+      if(locked){accent='#dc2626';chipK='red';chipL='Bloqueada';}
+      return {num:t.num,seats:t.seats,free,mine:isMine,locked,
+        waiterName:locked&&w?w.name:'',itemCount:t.items.reduce((a,i)=>a+i.qty,0),total:this.fmt(this.total(t.items)),
+        chipStyle:this.chip(chipK),chipLabel:chipL,
+        onClick:locked?(()=>this.toast('Mesa de '+(w?w.name:'outro garçom')+' · bloqueada')):(()=>this.openTable(t.id)),
+        cardStyle:{display:'flex',flexDirection:'column',gap:8,alignItems:'flex-start',padding:cardPad,borderRadius:14,border:'1px solid #e5e9f0',borderLeft:'5px solid '+accent,background:locked?'#fcfbfb':'#fff',cursor:locked?'not-allowed':'pointer',fontFamily:'inherit',textAlign:'left',opacity:locked?.82:1,minHeight:showMesaDetail?0:84}};
+    });
+    const mesaGridStyle={display:'grid',gap:13,gridTemplateColumns:showMesaDetail?'repeat(auto-fill,minmax(208px,1fr))':'repeat(auto-fill,minmax(146px,1fr))'};
+
+    // comanda
+    const at=s.tables.find(t=>t.id===s.activeTableId)||{items:[],num:'',seats:''};
+    const items=at.items||[];
+    const comandaEmpty=items.length===0;
+    const mkGroup=(sector,label,iconName,wrapBg,wrapFg,printerNote)=>{
+      const gi=items.filter(it=>it.sector===sector);
+      if(!gi.length) return null;
+      return {label,printerNote,iconWrap:{width:30,height:30,borderRadius:9,display:'inline-flex',alignItems:'center',justifyContent:'center',color:wrapFg,background:wrapBg},icon:this.icon(iconName,16),
+        items:gi.map(it=>{ const [k,l]=this.itemStatus(it.status); const editable=it.status==='PENDENTE'; const sent=!editable;
+          const canAdv=it.status==='ENVIADO'||it.status==='PREPARO';
+          return {name:it.qty>1?(it.qty+'× '+it.name):it.name,qty:it.qty,lineTotal:this.fmt(it.price*it.qty),statusLabel:l,chipStyle:this.chip(k),editable,sent,
+            onInc:()=>this.incItem(it.key),onDec:()=>this.decItem(it.key),onRemove:()=>this.decItem(it.key),
+            onAdvance:canAdv?(()=>this.advanceItem(it.key)):(()=>{}),
+            advLabel:it.status==='ENVIADO'?'Marcar preparo':it.status==='PREPARO'?'Marcar pronto':'Pronto',
+            advStyle:{border:'1px solid '+(canAdv?'#cfe1f5':'#dcfce7'),background:canAdv?'#f8fbff':'#dcfce7',color:canAdv?'#1f4e79':'#166534',borderRadius:9,padding:'9px 12px',fontSize:'.8rem',fontWeight:700,cursor:canAdv?'pointer':'default',fontFamily:'inherit',whiteSpace:'nowrap'}}; })};
+    };
+    const comandaGroups=[
+      mkGroup('cozinha','Cozinha','flame','#fef3c7','#92400e','→ Cozinha 01'),
+      mkGroup('bar','Bar','wine','#dbeafe','#1e3a8a','→ Bar 01'),
+    ].filter(Boolean);
+    const comandaTotal=this.fmt(this.total(items));
+    const cntBy=(st)=>items.filter(i=>i.status===st).reduce((a,i)=>a+i.qty,0);
+    const summaryDefs=[['PENDENTE','neutral','a enviar'],['ENVIADO','blue','enviados'],['PRONTO','green','prontos']];
+    const comandaSummary=summaryDefs.map(([st,k,l])=>({count:cntBy(st),label:l,style:this.chip(k)})).filter(x=>x.count>0);
+    const pendCoz=items.filter(i=>i.sector==='cozinha'&&i.status==='PENDENTE').reduce((a,i)=>a+i.qty,0);
+    const pendBar=items.filter(i=>i.sector==='bar'&&i.status==='PENDENTE').reduce((a,i)=>a+i.qty,0);
+    const sendBtn=(active,color)=>({flex:1,minWidth:150,display:'inline-flex',alignItems:'center',justifyContent:'center',gap:8,border:0,borderRadius:11,padding:'13px',fontWeight:800,fontSize:'.92rem',cursor:active?'pointer':'not-allowed',fontFamily:'inherit',background:active?color:'#e2e8f0',color:active?'#fff':'#94a3b8'});
+    const dividido=s.comandaVariant==='dividido';
+    const comandaBodyStyle={display:'grid',gridTemplateColumns:dividido?'minmax(0,1fr) 358px':'minmax(0,1fr)',flex:1,minHeight:0};
+    const catTabs=s.categories.map(c=>({label:c,onClick:()=>this.setCatCat(c),style:tabBtn(s.catCat===c)}));
+    const catProducts=s.products.filter(p=>p.category===s.catCat).map(p=>({name:p.name,price:this.fmt(p.price),onAdd:()=>this.addItem(p.id)}));
+
+    // print modal
+    let pm=null;
+    if(s.printModal){ const sec=s.printModal.sector; const printer=s.printers.find(p=>p.sector===sec);
+      const pmItems=items.filter(i=>i.sector===sec&&i.status==='PENDENTE').map(i=>({name:i.name,qty:i.qty}));
+      const isCoz=sec==='cozinha';
+      pm={pmSector:isCoz?'Cozinha':'Bar',pmPrinter:'Impressora '+(printer?printer.name:''),pmItems,
+        pmIcon:this.icon(isCoz?'flame':'wine',20),pmHeadStyle:{display:'flex',alignItems:'center',gap:13,padding:'18px 22px',color:'#fff',background:isCoz?'linear-gradient(135deg,#b45309,#92400e)':'linear-gradient(135deg,#2563eb,#1e3a8a)'}};
+    }
+
+    return {
+      brandName, isAdmin, isPdv, showSwitcher,
+      goAdmin:()=>this.goAdmin(), goPdv:()=>this.goPdv(),
+      adminTabStyle:isAdmin?tabOn:tabOff, pdvTabStyle:isPdv?tabOn:tabOff,
+      toast:s.toast, noop:()=>this.toast('Ação de demonstração'), stop:(e)=>e.stopPropagation(),
+      lockIcon:this.icon('lock',14,2.4), backIcon:this.icon('back',16), kitIcon:this.icon('flame',16), barIcon:this.icon('wine',16),
+
+      // admin
+      adminNav, adminKicker:adminMeta[0], adminTitle:adminMeta[1],
+      showDash:s.adminScreen==='dashboard', showGarcons:s.adminScreen==='garcons', showMesasAdmin:s.adminScreen==='mesas', showImpressoras:s.adminScreen==='impressoras', showProdutos:s.adminScreen==='produtos',
+      kpis, comandasAbertas:comandasComItens.length, comandaRows, mesaStatusBars, garconsServico,
+      garconsRows, mesasAdmin, waiterOptions, roteamento, printerCards, prodCats, prodRows,
+
+      // pdv shared
+      showLogin, showPdvMesas, showComanda,
+      waiterInitials:cw?cw.initials:'', waiterFirst:cw?cw.name.split(' ')[0]:'', waiterRole:cw?cw.role:'', waiterAvatarStyle:this.avatar(cw?cw.color:'#94a3b8',40),
+      pdvLogout:()=>this.pdvLogout(),
+
+      // login
+      loginWaiters, loginPickName, pinDots, keypad, onEnter:()=>this.onEnter(), enterStyle,
+
+      // mesas
+      minhasMesas:mine.length, showMesaDetail, mesaGridStyle, pdvMesas,
+      setVarDet:()=>this.setMesasVariant('detalhado'), setVarComp:()=>this.setMesasVariant('compacto'),
+      varDetStyle:showMesaDetail?segOn:segOff, varCompStyle:showMesaDetail?segOff:segOn,
+
+      // comanda
+      comandaNum:at.num, comandaSeats:at.seats, comandaEmpty, comandaGroups, comandaTotal, comandaSummary,
+      comandaBodyStyle, backToMesas:()=>this.backToMesas(),
+      setComDiv:()=>this.setComandaVariant('dividido'), setComFoco:()=>this.setComandaVariant('foco'),
+      comDivStyle:dividido?segOn:segOff, comFocoStyle:dividido?segOff:segOn,
+      showSideCatalog:dividido, showFab:!dividido, showDrawer:!dividido&&s.catalogOpen, toggleCatalog:()=>this.toggleCatalog(),
+      catTabs, catProducts,
+      onSendCozinha:()=>this.sendSector('cozinha'), onSendBar:()=>this.sendSector('bar'),
+      sendCozStyle:sendBtn(pendCoz>0,'#b45309'), sendBarStyle:sendBtn(pendBar>0,'#2563eb'),
+      pendCozLabel:pendCoz>0?('('+pendCoz+')'):'', pendBarLabel:pendBar>0?('('+pendBar+')'):'',
+      onFechar:()=>this.fecharConta(),
+
+      // modal
+      printModal:s.printModal, closeModal:()=>this.closeModal(), confirmSend:()=>this.confirmSend(),
+      pmSector:pm&&pm.pmSector, pmPrinter:pm&&pm.pmPrinter, pmItems:pm?pm.pmItems:[], pmIcon:pm&&pm.pmIcon, pmHeadStyle:pm&&pm.pmHeadStyle,
+    };
+  }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,104 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+}
+
+/* Animations ported from the design. */
+@keyframes mfade {
+  from {
+    transform: translateY(7px);
+  }
+  to {
+    transform: none;
+  }
+}
+@keyframes toastIn {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes ovin {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@keyframes popin {
+  from {
+    opacity: 0;
+    transform: translateY(14px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* Custom scrollbar. */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 9px;
+  border: 3px solid transparent;
+  background-clip: padding-box;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* Short / landscape screens: reclaim vertical space from fixed chrome so the
+   comanda item list and the login keypad stay usable (Tailwind has no
+   height-based breakpoints by default). */
+@media (max-height: 540px) {
+  .pdv-chrome {
+    padding-top: 0.45rem;
+    padding-bottom: 0.45rem;
+  }
+  /* Top-align (instead of center) so a tall keypad never clips; the page can
+     scroll the last few px if needed. */
+  .login-pane {
+    padding-top: 0.75rem;
+    padding-bottom: 0.75rem;
+    justify-content: flex-start;
+  }
+  .pin-key {
+    height: 2.5rem;
+  }
+  .pin-dots {
+    margin-bottom: 0.5rem;
+  }
+  .pin-pad {
+    gap: 0.5rem;
+  }
+  .pin-enter {
+    margin-top: 0.5rem;
+  }
+}
+
+/* Landscape phones: lay the login side-by-side instead of a tall stack. */
+@media (max-height: 540px) and (min-width: 640px) {
+  .login-root {
+    flex-direction: row;
+  }
+}

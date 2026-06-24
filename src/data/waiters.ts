@@ -1,0 +1,53 @@
+import type { Waiter } from "@/types";
+
+// Seed garçons (ported from the imported design + mock contact/notes fields).
+export const WAITERS: Waiter[] = [
+  {
+    id: "carlos",
+    name: "Carlos Lima",
+    initials: "CL",
+    color: "#2563eb",
+    login: "@carlos",
+    pin: "1234",
+    role: "Garçom",
+    status: "ATIVO",
+    phone: "(11) 98888-1234",
+    note: "",
+  },
+  {
+    id: "marina",
+    name: "Marina Souza",
+    initials: "MS",
+    color: "#0d9488",
+    login: "@marina",
+    pin: "2222",
+    role: "Garçonete",
+    status: "ATIVO",
+    phone: "(11) 98888-2222",
+    note: "",
+  },
+  {
+    id: "bruno",
+    name: "Bruno Alves",
+    initials: "BA",
+    color: "#b45309",
+    login: "@bruno",
+    pin: "3333",
+    role: "Garçom",
+    status: "ATIVO",
+    phone: "(11) 98888-3333",
+    note: "",
+  },
+  {
+    id: "julia",
+    name: "Júlia Reis",
+    initials: "JR",
+    color: "#7c3aed",
+    login: "@julia",
+    pin: "4444",
+    role: "Garçonete",
+    status: "PAUSA",
+    phone: "(11) 98888-4444",
+    note: "Retorna do intervalo às 18h.",
+  },
+];
