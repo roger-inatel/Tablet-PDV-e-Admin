@@ -1,7 +1,7 @@
-import type { Category, Product, Sector } from "@/types";
+import type { Category, Estacao, Produto } from "@/types";
 
-// Category display order (drives the catalog / produtos tabs).
-export const CATEGORIES: Category[] = [
+// v2 menu seed — same 20 products, `sector` renamed to `estacao`.
+export const CATEGORIAS: Category[] = [
   "Entradas",
   "Pratos",
   "Sobremesas",
@@ -9,8 +9,8 @@ export const CATEGORIES: Category[] = [
   "Bar",
 ];
 
-// [name, category, sector, price] — ported verbatim from the imported design.
-const RAW: [string, Category, Sector, number][] = [
+// [name, category, estacao, price]
+const RAW: [string, Category, Estacao, number][] = [
   ["Bruschetta", "Entradas", "cozinha", 24],
   ["Bolinho de bacalhau", "Entradas", "cozinha", 32],
   ["Carpaccio", "Entradas", "cozinha", 38],
@@ -33,19 +33,20 @@ const RAW: [string, Category, Sector, number][] = [
   ["Vinho (taça)", "Bar", "bar", 32],
 ];
 
-export const PRODUCTS: Product[] = RAW.map(([name, category, sector, price], i) => ({
-  id: "pr" + i,
-  name,
-  category,
-  sector,
-  price,
-}));
+export const PRODUTOS: Produto[] = RAW.map(
+  ([name, category, estacao, price], i) => ({
+    id: "pr" + i,
+    name,
+    category,
+    estacao,
+    price,
+  }),
+);
 
-/** Lookup table by product name (used when seeding comanda items). */
-export const PRODUCT_BY_NAME: Record<string, Product> = PRODUCTS.reduce(
+export const PRODUTO_BY_ID: Record<string, Produto> = PRODUTOS.reduce(
   (acc, p) => {
-    acc[p.name] = p;
+    acc[p.id] = p;
     return acc;
   },
-  {} as Record<string, Product>,
+  {} as Record<string, Produto>,
 );

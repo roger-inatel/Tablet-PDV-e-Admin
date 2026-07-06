@@ -1,17 +1,23 @@
 import type { Repos } from "./types";
-import { waitersRepo } from "./mock/waitersRepo";
-import { productsRepo } from "./mock/productsRepo";
-import { printersRepo } from "./mock/printersRepo";
-import { tablesRepo } from "./mock/tablesRepo";
+import { garconsRepo } from "./mock/garconsRepo";
+import { produtosRepo } from "./mock/produtosRepo";
+import { estacoesRepo } from "./mock/estacoesRepo";
+import { mesasRepo } from "./mock/mesasRepo";
+import { comandasRepo } from "./mock/comandasRepo";
+import { pedidosRepo } from "./mock/pedidosRepo";
 
 // The single place that wires concrete implementations to the repository seam.
-// Swapping to a NestJS backend = replace these mock repos with HTTP-backed ones
-// here. Every consumer imports `repos` and is unaffected by the change.
+// Swapping to the NestJS backend = replace the mock repos with HTTP-backed
+// implementations here (fetch + WebSocket/SSE realtime). Every consumer
+// imports `repos` and is unaffected by the change. See docs/CONTRACTS.md.
 export const repos: Repos = {
-  waiters: waitersRepo,
-  products: productsRepo,
-  printers: printersRepo,
-  tables: tablesRepo,
+  garcons: garconsRepo,
+  produtos: produtosRepo,
+  estacoes: estacoesRepo,
+  mesas: mesasRepo,
+  comandas: comandasRepo,
+  pedidos: pedidosRepo,
 };
 
 export type { Repos } from "./types";
+export * from "./errors";

@@ -1,7 +1,7 @@
-import type { Waiter } from "@/types";
+import type { Garcom } from "@/types";
 
-// Seed garçons (ported from the imported design + mock contact/notes fields).
-export const WAITERS: Waiter[] = [
+// v2 staff seed: the 4 waiters + the manager (caixa/painel).
+export const GARCONS: Garcom[] = [
   {
     id: "carlos",
     name: "Carlos Lima",
@@ -9,10 +9,10 @@ export const WAITERS: Waiter[] = [
     color: "#2563eb",
     login: "@carlos",
     pin: "1234",
-    role: "Garçom",
+    papel: "garcom",
+    cargo: "Garçom",
     status: "ATIVO",
     phone: "(11) 98888-1234",
-    note: "",
   },
   {
     id: "marina",
@@ -21,10 +21,10 @@ export const WAITERS: Waiter[] = [
     color: "#0d9488",
     login: "@marina",
     pin: "2222",
-    role: "Garçonete",
+    papel: "garcom",
+    cargo: "Garçonete",
     status: "ATIVO",
     phone: "(11) 98888-2222",
-    note: "",
   },
   {
     id: "bruno",
@@ -33,10 +33,10 @@ export const WAITERS: Waiter[] = [
     color: "#b45309",
     login: "@bruno",
     pin: "3333",
-    role: "Garçom",
+    papel: "garcom",
+    cargo: "Garçom",
     status: "ATIVO",
     phone: "(11) 98888-3333",
-    note: "",
   },
   {
     id: "julia",
@@ -45,9 +45,22 @@ export const WAITERS: Waiter[] = [
     color: "#7c3aed",
     login: "@julia",
     pin: "4444",
-    role: "Garçonete",
+    papel: "garcom",
+    cargo: "Garçonete",
     status: "PAUSA",
     phone: "(11) 98888-4444",
     note: "Retorna do intervalo às 18h.",
+  },
+  {
+    id: "gerente",
+    name: "Renata Prado",
+    initials: "RP",
+    color: "#1f4e79",
+    login: "@renata",
+    pin: "9999",
+    papel: "gerente",
+    cargo: "Gerente",
+    status: "ATIVO",
+    phone: "(11) 98888-9999",
   },
 ];
