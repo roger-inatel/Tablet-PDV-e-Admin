@@ -1,11 +1,11 @@
 "use client";
 
 import { fmt } from "@/lib/format";
-import type { Category, Product } from "@/types";
+import type { Category, Produto } from "@/types";
 
 interface CatalogPanelProps {
   categories: Category[];
-  products: Product[];
+  products: Produto[];
   activeCat: Category;
   onCat: (c: Category) => void;
   onAdd: (productId: string) => void;

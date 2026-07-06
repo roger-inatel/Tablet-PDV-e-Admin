@@ -1,11 +1,11 @@
 "use client";
 
 import { CatalogPanel } from "./CatalogPanel";
-import type { Category, Product } from "@/types";
+import type { Category, Produto } from "@/types";
 
 interface CatalogDrawerProps {
   categories: Category[];
-  products: Product[];
+  products: Produto[];
   activeCat: Category;
   onCat: (c: Category) => void;
   onAdd: (productId: string) => void;

@@ -2,54 +2,43 @@
 
 import { Icon } from "@/components/ui/Icon";
 import { StatusChip } from "@/components/ui/StatusChip";
-import { total as totalOf } from "@/lib/domain/comanda";
 import { fmt } from "@/lib/format";
-import { waitersById } from "@/store/selectors";
-import type { ChipKind, Table, Waiter } from "@/types";
+import type { MesaView } from "@/store/selectors";
+import type { ChipKind } from "@/types";
 
 interface MesaCardProps {
-  table: Table;
-  currentWaiterId: string | null;
-  waiters: Waiter[];
+  view: MesaView;
   detailed: boolean;
   onClick: () => void;
 }
 
-export function MesaCard({
-  table,
-  currentWaiterId,
-  waiters,
-  detailed,
-  onClick,
-}: MesaCardProps) {
-  const free = table.status === "livre";
-  const mine = table.status === "ocupada" && table.waiterId === currentWaiterId;
-  const locked = table.status === "ocupada" && table.waiterId !== currentWaiterId;
-  const w = table.waiterId ? waitersById(waiters)[table.waiterId] : undefined;
+export function MesaCard({ view, detailed, onClick }: MesaCardProps) {
+  const { mesa, kind, garcom, total, itemCount, emFechamento } = view;
 
   let accent = "#16a34a";
   let chipKind: ChipKind = "green";
   let chipLabel = "Livre";
-  if (mine) {
+  if (kind === "minha") {
     accent = "#2563eb";
     chipKind = "blue";
-    chipLabel = "Ocupada";
+    chipLabel = "Sua mesa";
   }
-  if (locked) {
+  if (kind === "outro") {
     accent = "#dc2626";
     chipKind = "red";
-    chipLabel = "Bloqueada";
+    chipLabel = "Ocupada";
   }
-
-  const itemCount = table.items.reduce((a, i) => a + i.qty, 0);
+  if (emFechamento) {
+    accent = "#d97706";
+    chipKind = "amber";
+    chipLabel = "Em fechamento";
+  }
 
   return (
     <button
       type="button"
       onClick={onClick}
-      className={`flex flex-col items-start gap-2 rounded-[14px] border border-line text-left ${
-        locked ? "cursor-not-allowed bg-[#fcfbfb] opacity-[.82]" : "cursor-pointer bg-white"
-      }`}
+      className="flex flex-col items-start gap-2 rounded-[14px] border border-line bg-white text-left"
       style={{
         borderLeft: `5px solid ${accent}`,
         padding: detailed ? 16 : 13,
@@ -58,31 +47,34 @@ export function MesaCard({
     >
       <div className="flex w-full items-start justify-between">
         <span className="text-[1.5rem] font-extrabold leading-none text-navy">
-          {table.num}
+          {mesa.num}
         </span>
         <StatusChip kind={chipKind}>{chipLabel}</StatusChip>
       </div>
       <div className="w-full text-left text-[0.8rem] text-ink-muted">
-        {table.seats} lugares
+        {mesa.seats} lugares
       </div>
 
       {detailed && (
         <div className="mt-0.5 w-full">
-          {locked && (
-            <div className="flex items-center gap-1.5 rounded-[9px] bg-[#fef2f2] px-2.5 py-2 text-[0.8rem] font-semibold text-[#991b1b]">
-              <Icon name="lock" size={14} strokeWidth={2.4} />
-              {w?.name}
+          {kind === "outro" && (
+            <div className="flex items-center justify-between gap-2 border-t border-dashed border-[#dbe2ea] pt-2">
+              <span className="inline-flex min-w-0 items-center gap-1.5 text-[0.8rem] font-semibold text-[#991b1b]">
+                <Icon name="lock" size={13} strokeWidth={2.4} />
+                <span className="truncate">{garcom?.name}</span>
+              </span>
+              <span className="shrink-0 text-[0.78rem] font-bold text-ink-muted">
+                Ver →
+              </span>
             </div>
           )}
-          {mine && (
+          {kind === "minha" && (
             <div className="flex items-center justify-between border-t border-dashed border-[#dbe2ea] pt-2">
               <span className="text-[0.8rem] text-ink-muted">{itemCount} itens</span>
-              <strong className="text-[0.96rem] text-[#1f4e79]">
-                {fmt(totalOf(table.items))}
-              </strong>
+              <strong className="text-[0.96rem] text-[#1f4e79]">{fmt(total)}</strong>
             </div>
           )}
-          {free && (
+          {kind === "livre" && (
             <div className="border-t border-dashed border-[#dbe2ea] pt-2 text-[0.82rem] font-bold text-[#16a34a]">
               Toque para abrir →
             </div>
