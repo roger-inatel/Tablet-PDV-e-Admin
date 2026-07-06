@@ -3,8 +3,11 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Avatar } from "@/components/ui/Avatar";
+import { Icon } from "@/components/ui/Icon";
 import { useAppStore } from "@/store/useAppStore";
-import { WAITERS } from "@/data/waiters";
+import { GARCONS } from "@/data/garcons";
+import { ESTACOES } from "@/data/estacoes";
+import type { Estacao } from "@/types";
 
 const KEYS: { label: string; alt?: boolean; action: "digit" | "clear" | "back" }[] = [
   { label: "1", action: "digit" },
@@ -23,15 +26,23 @@ const KEYS: { label: string; alt?: boolean; action: "digit" | "clear" | "back" }
 
 export default function LoginPage() {
   const router = useRouter();
-  const login = useAppStore((s) => s.login);
-  const storeWaiters = useAppStore((s) => s.waiters);
-  // Reflect admin edits when the store is loaded; fall back to the seed otherwise.
-  const waiters = storeWaiters.length ? storeWaiters : WAITERS;
+  const loginGarcom = useAppStore((s) => s.loginGarcom);
+  const entrarEstacao = useAppStore((s) => s.entrarEstacao);
+  const storeGarcons = useAppStore((s) => s.garcons);
+  const storeEstacoes = useAppStore((s) => s.estacoes);
+
+  // Reflect admin edits when loaded; fall back to seeds pre-hydration.
+  const equipe = storeGarcons.length ? storeGarcons : GARCONS;
+  const estacoes = storeEstacoes.length ? storeEstacoes : ESTACOES;
+  const garcons = equipe.filter((g) => g.papel === "garcom");
+  const gerentes = equipe.filter((g) => g.papel === "gerente");
+
   const [pickId, setPickId] = useState<string>("carlos");
   const [pin, setPin] = useState("");
+  const [entrando, setEntrando] = useState(false);
 
-  const picked = waiters.find((w) => w.id === pickId);
-  const canEnter = pin.length >= 4;
+  const picked = equipe.find((g) => g.id === pickId);
+  const canEnter = pin.length >= 4 && !entrando;
 
   const press = (key: (typeof KEYS)[number]) => {
     if (key.action === "digit") {
@@ -45,65 +56,151 @@ export default function LoginPage() {
 
   const onEnter = async () => {
     if (!canEnter) return;
-    const ok = await login(pickId, pin);
-    if (ok) {
-      router.push("/pdv");
+    setEntrando(true);
+    const papel = await loginGarcom(pickId, pin);
+    setEntrando(false);
+    if (papel) {
+      router.push(papel === "gerente" ? "/admin" : "/garcom");
     } else {
       setPin("");
     }
   };
 
+  const onEstacao = (estacao: Estacao) => {
+    entrarEstacao(estacao);
+    router.push(`/kds/${estacao}`);
+  };
+
+  const cardCls = (sel: boolean) =>
+    `flex items-center gap-3 rounded-[13px] border-2 p-3.5 text-left ${
+      sel
+        ? "border-brand-600 bg-[#eff6ff] shadow-[0_8px_20px_-10px_rgba(37,99,235,.5)]"
+        : "border-line bg-white"
+    }`;
+
   return (
     <div className="login-root flex min-h-[100dvh] flex-col lg:flex-row">
-      {/* Left: identity */}
+      {/* Left: profile hub */}
       <div className="login-pane flex flex-1 flex-col justify-center px-6 py-8 md:px-10 lg:px-16 lg:py-12 [background:radial-gradient(circle_at_18%_18%,#dbeafe,#f4f7fc_48%,#e8eef7)]">
-        <div className="mb-8 flex items-center gap-3">
+        <div className="mb-7 flex items-center gap-3">
           <span className="inline-flex h-[52px] w-[52px] items-center justify-center rounded-[15px] bg-gradient-to-br from-brand-600 to-[#1e3a8a] text-[1.1rem] font-extrabold text-white shadow-[0_10px_22px_-10px_rgba(37,99,235,.7)]">
             M+
           </span>
           <div>
             <div className="text-[1.4rem] font-extrabold text-navy">Mesa+</div>
             <div className="text-[0.9rem] font-semibold text-ink-muted">
-              PDV do Garçom
+              Bistrô Central
             </div>
           </div>
         </div>
-        <h1 className="m-0 mb-[7px] text-[1.7rem] leading-tight text-navy">
+        <h1 className="m-0 mb-[7px] text-[1.6rem] leading-tight text-navy">
           Identifique-se para começar
         </h1>
-        <p className="m-0 mb-[22px] max-w-md text-[0.98rem] leading-relaxed text-ink-muted">
-          Toque no seu nome e digite seu PIN de 4 dígitos para abrir as mesas.
+        <p className="m-0 mb-5 max-w-md text-[0.95rem] leading-relaxed text-ink-muted">
+          Escolha seu perfil. Garçons e gerência entram com PIN; as estações de
+          preparo entram direto.
         </p>
-        <div className="grid max-w-xl grid-cols-1 gap-[11px] sm:grid-cols-2">
-          {waiters.map((w) => {
-            const sel = pickId === w.id;
-            const paused = w.status === "PAUSA";
-            return (
-              <button
-                key={w.id}
-                type="button"
-                onClick={() => {
-                  setPickId(w.id);
-                  setPin("");
-                }}
-                className={`flex items-center gap-3 rounded-[13px] border-2 p-3.5 text-left ${
-                  sel
-                    ? "border-brand-600 bg-[#eff6ff] shadow-[0_8px_20px_-10px_rgba(37,99,235,.5)]"
-                    : "border-line bg-white"
-                }`}
-              >
-                <Avatar initials={w.initials} color={w.color} size={42} />
-                <span className="grid min-w-0 gap-px">
-                  <strong className="text-[0.94rem] leading-tight text-navy">
-                    {w.name}
-                  </strong>
-                  <span className="text-[0.78rem] text-ink-muted">
-                    {paused ? "Em pausa" : w.role}
-                  </span>
-                </span>
-              </button>
-            );
-          })}
+
+        <div className="grid max-w-2xl gap-5">
+          {/* Garçons */}
+          <div>
+            <div className="mb-2 text-[0.72rem] font-bold uppercase tracking-[0.1em] text-ink-muted">
+              Garçons
+            </div>
+            <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
+              {garcons.map((g) => {
+                const sel = pickId === g.id;
+                const paused = g.status === "PAUSA";
+                return (
+                  <button
+                    key={g.id}
+                    type="button"
+                    onClick={() => {
+                      setPickId(g.id);
+                      setPin("");
+                    }}
+                    className={cardCls(sel)}
+                  >
+                    <Avatar initials={g.initials} color={g.color} size={40} />
+                    <span className="grid min-w-0 gap-px">
+                      <strong className="text-[0.92rem] leading-tight text-navy">
+                        {g.name}
+                      </strong>
+                      <span className="text-[0.76rem] text-ink-muted">
+                        {paused ? "Em pausa" : g.cargo}
+                      </span>
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Gerência + KDS side by side */}
+          <div className="grid gap-5 sm:grid-cols-2">
+            <div>
+              <div className="mb-2 text-[0.72rem] font-bold uppercase tracking-[0.1em] text-ink-muted">
+                Gerência
+              </div>
+              <div className="grid gap-2.5">
+                {gerentes.map((g) => {
+                  const sel = pickId === g.id;
+                  return (
+                    <button
+                      key={g.id}
+                      type="button"
+                      onClick={() => {
+                        setPickId(g.id);
+                        setPin("");
+                      }}
+                      className={cardCls(sel)}
+                    >
+                      <Avatar initials={g.initials} color={g.color} size={40} />
+                      <span className="grid min-w-0 gap-px">
+                        <strong className="text-[0.92rem] leading-tight text-navy">
+                          {g.name}
+                        </strong>
+                        <span className="text-[0.76rem] text-ink-muted">
+                          {g.cargo} · Painel
+                        </span>
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div>
+              <div className="mb-2 text-[0.72rem] font-bold uppercase tracking-[0.1em] text-ink-muted">
+                Estações (KDS)
+              </div>
+              <div className="grid gap-2.5">
+                {estacoes.map((e) => (
+                  <button
+                    key={e.id}
+                    type="button"
+                    onClick={() => onEstacao(e.id)}
+                    className="flex items-center gap-3 rounded-[13px] border-2 border-line bg-white p-3.5 text-left"
+                  >
+                    <span
+                      className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-[12px] text-white"
+                      style={{ background: e.cor }}
+                    >
+                      <Icon name={e.icone} size={19} />
+                    </span>
+                    <span className="grid min-w-0 gap-px">
+                      <strong className="text-[0.92rem] leading-tight text-navy">
+                        {e.nome}
+                      </strong>
+                      <span className="text-[0.76rem] text-ink-muted">
+                        Entrar direto →
+                      </span>
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -148,7 +245,7 @@ export default function LoginPage() {
             canEnter ? "cursor-pointer bg-[#1f4e79]" : "cursor-not-allowed bg-[#cbd5e1]"
           }`}
         >
-          Entrar no PDV
+          {entrando ? "Entrando…" : "Entrar"}
         </button>
       </div>
     </div>

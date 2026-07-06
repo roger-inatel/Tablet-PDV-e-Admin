@@ -1,61 +1,143 @@
-import type { ChipKind, Table, Waiter } from "@/types";
-import { total } from "@/lib/domain/comanda";
+import type {
+  ChipKind,
+  Comanda,
+  Estacao,
+  Garcom,
+  GarcomStatus,
+  ItemPedidoStatus,
+  Mesa,
+  Pedido,
+  Sessao,
+} from "@/types";
+import { totalComanda } from "@/lib/domain/pedido";
+import { estagioDaEstacao, pertenceAEstacao } from "@/lib/domain/pedido";
 
-// Pure derivations over store state. Components call these inside `useMemo`
-// (rather than subscribing to a freshly-built object each render).
+// Pure derivations over the v2 store state (call inside useMemo).
 
-export function waitersById(waiters: Waiter[]): Record<string, Waiter> {
-  return waiters.reduce(
-    (acc, w) => {
-      acc[w.id] = w;
+export function garconsById(garcons: Garcom[]): Record<string, Garcom> {
+  return garcons.reduce(
+    (acc, g) => {
+      acc[g.id] = g;
       return acc;
     },
-    {} as Record<string, Waiter>,
+    {} as Record<string, Garcom>,
   );
 }
 
-export function occupiedTables(tables: Table[]): Table[] {
-  return tables.filter((t) => t.status === "ocupada");
+export function comandaById(
+  comandas: Comanda[],
+  id: string | null,
+): Comanda | undefined {
+  return id ? comandas.find((c) => c.id === id) : undefined;
 }
 
-export function freeTables(tables: Table[]): Table[] {
-  return tables.filter((t) => t.status === "livre");
+export function pedidosDaComanda(pedidos: Pedido[], comandaId: string): Pedido[] {
+  return pedidos
+    .filter((p) => p.comandaId === comandaId)
+    .sort((a, b) => a.seq - b.seq);
 }
 
-/** Occupied tables that already have at least one item (an open comanda). */
-export function openComandas(tables: Table[]): Table[] {
-  return occupiedTables(tables).filter((t) => t.items.length > 0);
+// ---- garcom surface ---------------------------------------------------------
+
+export type MesaViewKind = "livre" | "minha" | "outro";
+
+export interface MesaView {
+  mesa: Mesa;
+  kind: MesaViewKind;
+  comanda?: Comanda;
+  garcom?: Garcom;
+  total: number;
+  itemCount: number;
+  emFechamento: boolean;
 }
 
-export function activeWaiters(waiters: Waiter[]): Waiter[] {
-  return waiters.filter((w) => w.status === "ATIVO");
+export function mesaViews(
+  mesas: Mesa[],
+  comandas: Comanda[],
+  pedidos: Pedido[],
+  garcons: Garcom[],
+  sessao: Sessao | null,
+): MesaView[] {
+  const gById = garconsById(garcons);
+  const meuId = sessao && sessao.papel !== "estacao" ? sessao.garcomId : null;
+  return mesas.map((mesa) => {
+    const comanda = comandaById(comandas, mesa.comandaId);
+    if (!comanda) {
+      return { mesa, kind: "livre", total: 0, itemCount: 0, emFechamento: false };
+    }
+    const meus = pedidosDaComanda(pedidos, comanda.id);
+    const itemCount =
+      comanda.itensDraft.reduce((s, d) => s + d.qtd, 0) +
+      meus.reduce((s, p) => s + p.itens.reduce((a, i) => a + i.qtd, 0), 0);
+    return {
+      mesa,
+      kind: comanda.garcomId === meuId ? "minha" : "outro",
+      comanda,
+      garcom: gById[comanda.garcomId],
+      total: totalComanda(comanda, meus),
+      itemCount,
+      emFechamento: comanda.status === "EM_FECHAMENTO",
+    };
+  });
 }
 
-/** Tables an open comanda total across all occupied tables. */
-export function openTotal(tables: Table[]): number {
-  return occupiedTables(tables).reduce((sum, t) => sum + total(t.items), 0);
+export function minhasMesasCount(views: MesaView[]): number {
+  return views.filter((v) => v.kind === "minha").length;
 }
 
-export function tablesForWaiter(tables: Table[], waiterId: string | null): Table[] {
-  if (!waiterId) return [];
-  return tables.filter((t) => t.status === "ocupada" && t.waiterId === waiterId);
+// ---- KDS --------------------------------------------------------------------
+
+export interface KdsCard {
+  pedido: Pedido;
+  /** Least-advanced status among the station's items (board column). */
+  estagio: ItemPedidoStatus;
 }
 
-export function tableCountForWaiter(tables: Table[], waiterId: string): number {
-  return tables.filter((t) => t.waiterId === waiterId).length;
+/** Station queue: pedidos with items for this station, not fully PRONTO. */
+export function kdsQueue(pedidos: Pedido[], estacao: Estacao): KdsCard[] {
+  return pedidos
+    .filter((p) => pertenceAEstacao(p, estacao))
+    .map((p) => ({ pedido: p, estagio: estagioDaEstacao(p, estacao)! }))
+    .sort(
+      (a, b) =>
+        new Date(a.pedido.criadoEm).getTime() -
+        new Date(b.pedido.criadoEm).getTime(),
+    );
 }
 
-/** Status of a comanda row on the admin dashboard. */
-export function comandaRowStatus(t: Table): { kind: ChipKind; label: string } {
-  const hasPending = t.items.some((i) => i.status === "PENDENTE");
-  const allReady = t.items.length > 0 && t.items.every((i) => i.status === "PRONTO");
-  if (hasPending) return { kind: "neutral", label: "Itens a enviar" };
-  if (allReady) return { kind: "green", label: "Tudo pronto" };
-  return { kind: "blue", label: "Em andamento" };
+// ---- admin ------------------------------------------------------------------
+
+export function comandasAtivas(comandas: Comanda[]): Comanda[] {
+  return comandas.filter((c) => c.status !== "FECHADA");
 }
 
-/** Waiter status chip mapping. */
-export function waiterStatusMeta(status: Waiter["status"]): {
+export function comandasEmFechamento(comandas: Comanda[]): Comanda[] {
+  return comandas.filter((c) => c.status === "EM_FECHAMENTO");
+}
+
+export function comandasComErroFiscal(comandas: Comanda[]): Comanda[] {
+  return comandas.filter((c) => c.fiscal?.status === "ERRO");
+}
+
+export function totalEmAberto(comandas: Comanda[], pedidos: Pedido[]): number {
+  return comandasAtivas(comandas).reduce(
+    (sum, c) => sum + totalComanda(c, pedidosDaComanda(pedidos, c.id)),
+    0,
+  );
+}
+
+export function garconsAtivos(garcons: Garcom[]): Garcom[] {
+  return garcons.filter((g) => g.papel === "garcom" && g.status === "ATIVO");
+}
+
+export function mesasDoGarcom(
+  comandas: Comanda[],
+  garcomId: string,
+): number {
+  return comandasAtivas(comandas).filter((c) => c.garcomId === garcomId).length;
+}
+
+export function garcomStatusMeta(status: GarcomStatus): {
   kind: ChipKind;
   label: string;
 } {

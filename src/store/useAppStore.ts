@@ -4,28 +4,34 @@ import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
 import type {
   Category,
+  Comanda,
   ComandaVariant,
+  Estacao,
+  EstacaoConfig,
+  Garcom,
+  GarcomStatus,
+  ItemPedidoStatus,
+  Mesa,
   MesasVariant,
-  Printer,
-  Product,
-  Sector,
-  Table,
-  Waiter,
-  WaiterStatus,
+  MetodoPagamento,
+  Pedido,
+  Produto,
+  Sessao,
 } from "@/types";
-import { repos } from "@/lib/api";
+import { repos, isConflictError } from "@/lib/api";
+import type { EventoRealtime } from "@/lib/realtime";
 import { uid } from "@/lib/format";
 
-/** Payload for creating a new waiter from the admin drawer. */
-export interface NewWaiterInput {
+/** Payload for creating a new garcom from the admin drawer. */
+export interface NewGarcomInput {
   name: string;
   login: string;
-  status: WaiterStatus;
+  status: GarcomStatus;
   phone?: string;
   note?: string;
 }
 
-const WAITER_PALETTE = [
+const GARCOM_PALETTE = [
   "#2563eb",
   "#0d9488",
   "#b45309",
@@ -41,61 +47,95 @@ function initialsFrom(name: string): string {
   return (parts[0][0] + parts[1][0]).toUpperCase();
 }
 
-interface OpenResult {
-  ok: boolean;
-  table?: Table;
-  /** Name of the waiter holding the table, when blocked. */
-  blockedBy?: string;
+// ---- reconciliation helpers -------------------------------------------------
+
+/**
+ * Version-guarded upsert: applies a comanda snapshot only when strictly newer.
+ * This single rule makes event application idempotent and order-tolerant, and
+ * silently drops the local echo of our own mutations (same version as the
+ * repo response we already applied).
+ */
+function upsertComanda(list: Comanda[], c: Comanda): Comanda[] {
+  const cur = list.find((x) => x.id === c.id);
+  if (!cur) return [...list, c];
+  if (c.version <= cur.version) return list;
+  return list.map((x) => (x.id === c.id ? c : x));
+}
+
+function upsertPedido(list: Pedido[], p: Pedido): Pedido[] {
+  return list.some((x) => x.id === p.id)
+    ? list.map((x) => (x.id === p.id ? p : x))
+    : [...list, p];
+}
+
+function upsertMesa(list: Mesa[], m: Mesa): Mesa[] {
+  return list.map((x) => (x.id === m.id ? m : x));
 }
 
 interface AppState {
   // Reference data (loaded once from the repos)
-  waiters: Waiter[];
-  products: Product[];
-  categories: Category[];
-  printers: Printer[];
+  garcons: Garcom[];
+  produtos: Produto[];
+  categorias: Category[];
+  estacoes: EstacaoConfig[];
 
-  // Operational state — persisted by the repo layer, mirrored here for reactivity
-  tables: Table[];
+  // Operational state (event-reconciled cache of the mock "server")
+  mesas: Mesa[];
+  comandas: Comanda[];
+  pedidos: Pedido[];
 
-  // Session
-  currentWaiterId: string | null;
+  // Session (persisted per-tab in sessionStorage)
+  sessao: Sessao | null;
 
-  // UI preferences (persisted)
+  // UI prefs (persisted with the session)
   mesasVariant: MesasVariant;
   comandaVariant: ComandaVariant;
 
-  // Transient UI state
+  // Transient
   toast: string | null;
-  printModal: { tableId: number; sector: Sector } | null;
-
-  // Lifecycle flags
-  loaded: boolean; // reference + tables loaded from the repos
-  hydrated: boolean; // persisted slice rehydrated on the client
+  loaded: boolean;
+  hydrated: boolean;
 
   // ---- lifecycle ----
   init: () => Promise<void>;
+  refresh: () => Promise<void>;
   setHydrated: () => void;
 
-  // ---- auth ----
-  login: (waiterId: string, pin: string) => Promise<boolean>;
+  // ---- auth/session ----
+  loginGarcom: (garcomId: string, pin: string) => Promise<Garcom["papel"] | null>;
+  entrarEstacao: (estacao: Estacao) => void;
   logout: () => void;
 
-  // ---- waiters (admin) ----
-  updateWaiter: (id: string, patch: Partial<Waiter>) => Promise<void>;
-  createWaiter: (data: NewWaiterInput) => Promise<void>;
+  // ---- comanda (garcom/gerente) ----
+  abrirComanda: (mesaId: number) => Promise<Comanda | null>;
+  addItemDraft: (comandaId: string, produtoId: string) => Promise<void>;
+  incDraft: (comandaId: string, key: string) => Promise<void>;
+  decDraft: (comandaId: string, key: string) => Promise<void>;
+  enviarPedido: (comandaId: string) => Promise<boolean>;
+  iniciarFechamento: (comandaId: string) => Promise<boolean>;
+  cancelarFechamento: (comandaId: string) => Promise<void>;
+  registrarPagamento: (
+    comandaId: string,
+    metodo: MetodoPagamento,
+    simularErroFiscal: boolean,
+  ) => Promise<boolean>;
+  retryFiscal: (comandaId: string) => Promise<void>;
+  transferirComanda: (comandaId: string, garcomId: string) => Promise<void>;
 
-  // ---- tables / comanda ----
-  openTable: (id: number) => Promise<OpenResult>;
-  addItem: (tableId: number, productId: string) => Promise<void>;
-  incItem: (tableId: number, key: string) => Promise<void>;
-  decItem: (tableId: number, key: string) => Promise<void>;
-  advanceItem: (tableId: number, key: string) => Promise<void>;
-  requestSend: (tableId: number, sector: Sector) => void;
-  confirmSend: () => Promise<void>;
-  closeModal: () => void;
-  closeBill: (tableId: number) => Promise<void>;
-  setResponsavel: (tableId: number, waiterId: string | null) => Promise<void>;
+  // ---- KDS (estacao) ----
+  receberPedido: (pedidoId: string, estacao: Estacao) => Promise<void>;
+  avancarItemPedido: (
+    pedidoId: string,
+    itemId: string,
+    para: ItemPedidoStatus,
+  ) => Promise<void>;
+
+  // ---- garcons (admin) ----
+  salvarGarcom: (id: string, patch: Partial<Garcom>) => Promise<void>;
+  criarGarcom: (data: NewGarcomInput) => Promise<void>;
+
+  // ---- realtime ----
+  applyEvento: (evt: EventoRealtime) => void;
 
   // ---- ui ----
   setMesasVariant: (v: MesasVariant) => void;
@@ -104,185 +144,328 @@ interface AppState {
   clearToast: () => void;
 }
 
-function replaceTable(tables: Table[], updated: Table): Table[] {
-  return tables.map((t) => (t.id === updated.id ? updated : t));
-}
-
 let toastTimer: ReturnType<typeof setTimeout> | undefined;
 
 export const useAppStore = create<AppState>()(
   persist(
-    (set, get) => ({
-      waiters: [],
-      products: [],
-      categories: [],
-      printers: [],
-      tables: [],
-      currentWaiterId: null,
-      mesasVariant: "detalhado",
-      comandaVariant: "dividido",
-      toast: null,
-      printModal: null,
-      loaded: false,
-      hydrated: false,
-
-      init: async () => {
-        if (get().loaded) return;
-        const [waiters, products, categories, printers, tables] = await Promise.all([
-          repos.waiters.list(),
-          repos.products.list(),
-          repos.products.categories(),
-          repos.printers.list(),
-          repos.tables.list(),
-        ]);
-        set({ waiters, products, categories, printers, tables, loaded: true });
-      },
-
-      setHydrated: () => set({ hydrated: true }),
-
-      login: async (waiterId, pin) => {
-        const w = await repos.waiters.authenticate(waiterId, pin);
-        if (!w) {
-          get().pushToast("PIN incorreto");
-          return false;
+    (set, get) => {
+      /** Shared 409 handling: refetch the comanda, surface a toast, no silent retry. */
+      const handleMutationError = async (
+        e: unknown,
+        comandaId?: string,
+      ): Promise<false> => {
+        if (isConflictError(e) && comandaId) {
+          const fresh = await repos.comandas.get(comandaId);
+          if (fresh) {
+            set((s) => ({ comandas: upsertComanda(s.comandas, fresh) }));
+          }
+          get().pushToast("Comanda atualizada por outro usuário");
+        } else {
+          get().pushToast(e instanceof Error ? e.message : "Erro inesperado");
         }
-        set({ currentWaiterId: w.id });
-        get().pushToast("Bem-vindo ao PDV");
-        return true;
-      },
+        return false;
+      };
 
-      logout: () => set({ currentWaiterId: null }),
+      return {
+        garcons: [],
+        produtos: [],
+        categorias: [],
+        estacoes: [],
+        mesas: [],
+        comandas: [],
+        pedidos: [],
+        sessao: null,
+        mesasVariant: "detalhado",
+        comandaVariant: "dividido",
+        toast: null,
+        loaded: false,
+        hydrated: false,
 
-      updateWaiter: async (id, patch) => {
-        const current = get().waiters.find((w) => w.id === id);
-        if (!current) return;
-        const updated = await repos.waiters.save({ ...current, ...patch });
-        set((s) => ({
-          waiters: s.waiters.map((w) => (w.id === id ? updated : w)),
-        }));
-        get().pushToast("Garçom atualizado");
-      },
+        init: async () => {
+          if (get().loaded) return;
+          const [garcons, produtos, categorias, estacoes, mesas, comandas, pedidos] =
+            await Promise.all([
+              repos.garcons.list(),
+              repos.produtos.list(),
+              repos.produtos.categories(),
+              repos.estacoes.list(),
+              repos.mesas.list(),
+              repos.comandas.list(),
+              repos.pedidos.list(),
+            ]);
+          set({
+            garcons,
+            produtos,
+            categorias,
+            estacoes,
+            mesas,
+            comandas,
+            pedidos,
+            loaded: true,
+          });
+        },
 
-      createWaiter: async (data) => {
-        const id =
-          "g" +
-          (data.name.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-") || uid());
-        const waiter: Waiter = {
-          id,
-          name: data.name.trim(),
-          initials: initialsFrom(data.name),
-          color: WAITER_PALETTE[get().waiters.length % WAITER_PALETTE.length],
-          login: data.login.trim() || "@" + id,
-          pin: "0000",
-          role: "Garçom",
-          status: data.status,
-          phone: data.phone?.trim() || undefined,
-          note: data.note?.trim() || undefined,
-        };
-        const saved = await repos.waiters.save(waiter);
-        set((s) => ({ waiters: [...s.waiters, saved] }));
-        get().pushToast("Garçom cadastrado");
-      },
+        refresh: async () => {
+          const [garcons, mesas, comandas, pedidos] = await Promise.all([
+            repos.garcons.list(),
+            repos.mesas.list(),
+            repos.comandas.list(),
+            repos.pedidos.list(),
+          ]);
+          set({ garcons, mesas, comandas, pedidos });
+        },
 
-      openTable: async (id) => {
-        const { tables, currentWaiterId, waiters } = get();
-        const t = tables.find((x) => x.id === id);
-        if (!t || !currentWaiterId) return { ok: false };
+        setHydrated: () => set({ hydrated: true }),
 
-        const mine = t.status === "ocupada" && t.waiterId === currentWaiterId;
-        const locked = t.status === "ocupada" && t.waiterId !== currentWaiterId;
+        loginGarcom: async (garcomId, pin) => {
+          const g = await repos.garcons.authenticate(garcomId, pin);
+          if (!g) {
+            get().pushToast("PIN incorreto");
+            return null;
+          }
+          set({ sessao: { papel: g.papel, garcomId: g.id } });
+          get().pushToast(
+            g.papel === "gerente" ? "Bem-vinda ao painel" : "Bem-vindo ao PDV",
+          );
+          return g.papel;
+        },
 
-        if (locked) {
-          const w = waiters.find((x) => x.id === t.waiterId);
-          return { ok: false, blockedBy: w?.name };
-        }
-        if (t.status === "livre") {
-          const updated = await repos.tables.open(id, currentWaiterId);
-          set({ tables: replaceTable(tables, updated) });
-          return { ok: true, table: updated };
-        }
-        // already mine
-        void mine;
-        return { ok: true, table: t };
-      },
+        entrarEstacao: (estacao) => {
+          set({ sessao: { papel: "estacao", estacao } });
+        },
 
-      addItem: async (tableId, productId) => {
-        const updated = await repos.tables.addItem(tableId, productId);
-        set((s) => ({ tables: replaceTable(s.tables, updated) }));
-        const p = get().products.find((x) => x.id === productId);
-        if (p) get().pushToast(`${p.name} adicionado`);
-      },
+        logout: () => set({ sessao: null }),
 
-      incItem: async (tableId, key) => {
-        const updated = await repos.tables.setQty(tableId, key, 1);
-        set((s) => ({ tables: replaceTable(s.tables, updated) }));
-      },
+        abrirComanda: async (mesaId) => {
+          const { sessao } = get();
+          if (sessao?.papel !== "garcom") return null;
+          try {
+            const comanda = await repos.comandas.abrir(mesaId, sessao.garcomId);
+            set((s) => ({
+              comandas: upsertComanda(s.comandas, comanda),
+              mesas: s.mesas.map((m) =>
+                m.id === mesaId ? { ...m, comandaId: comanda.id } : m,
+              ),
+            }));
+            return comanda;
+          } catch (e) {
+            await handleMutationError(e);
+            return null;
+          }
+        },
 
-      decItem: async (tableId, key) => {
-        const updated = await repos.tables.setQty(tableId, key, -1);
-        set((s) => ({ tables: replaceTable(s.tables, updated) }));
-      },
+        addItemDraft: async (comandaId, produtoId) => {
+          try {
+            const comanda = await repos.comandas.addItemDraft(comandaId, produtoId);
+            set((s) => ({ comandas: upsertComanda(s.comandas, comanda) }));
+            const p = get().produtos.find((x) => x.id === produtoId);
+            if (p) get().pushToast(`${p.name} adicionado`);
+          } catch (e) {
+            await handleMutationError(e, comandaId);
+          }
+        },
 
-      advanceItem: async (tableId, key) => {
-        const updated = await repos.tables.advanceItem(tableId, key);
-        set((s) => ({ tables: replaceTable(s.tables, updated) }));
-      },
+        incDraft: async (comandaId, key) => {
+          try {
+            const comanda = await repos.comandas.setQtdDraft(comandaId, key, 1);
+            set((s) => ({ comandas: upsertComanda(s.comandas, comanda) }));
+          } catch (e) {
+            await handleMutationError(e, comandaId);
+          }
+        },
 
-      requestSend: (tableId, sector) => {
-        const t = get().tables.find((x) => x.id === tableId);
-        if (!t) return;
-        const hasPending = t.items.some(
-          (it) => it.sector === sector && it.status === "PENDENTE",
-        );
-        if (!hasPending) {
-          get().pushToast("Nenhum item pendente neste setor");
-          return;
-        }
-        set({ printModal: { tableId, sector } });
-      },
+        decDraft: async (comandaId, key) => {
+          try {
+            const comanda = await repos.comandas.setQtdDraft(comandaId, key, -1);
+            set((s) => ({ comandas: upsertComanda(s.comandas, comanda) }));
+          } catch (e) {
+            await handleMutationError(e, comandaId);
+          }
+        },
 
-      confirmSend: async () => {
-        const pm = get().printModal;
-        if (!pm) return;
-        const updated = await repos.tables.sendSector(pm.tableId, pm.sector);
-        set((s) => ({ tables: replaceTable(s.tables, updated), printModal: null }));
-        get().pushToast(
-          pm.sector === "cozinha"
-            ? "Pedido impresso na cozinha"
-            : "Pedido impresso no bar",
-        );
-      },
+        enviarPedido: async (comandaId) => {
+          const atual = get().comandas.find((c) => c.id === comandaId);
+          if (!atual) return false;
+          try {
+            const { comanda, pedido } = await repos.comandas.enviarPedido(
+              comandaId,
+              atual.version,
+            );
+            set((s) => ({
+              comandas: upsertComanda(s.comandas, comanda),
+              pedidos: upsertPedido(s.pedidos, pedido),
+            }));
+            get().pushToast(`Pedido #${pedido.seq} enviado`);
+            return true;
+          } catch (e) {
+            return handleMutationError(e, comandaId);
+          }
+        },
 
-      closeModal: () => set({ printModal: null }),
+        iniciarFechamento: async (comandaId) => {
+          const atual = get().comandas.find((c) => c.id === comandaId);
+          if (!atual) return false;
+          try {
+            const comanda = await repos.comandas.iniciarFechamento(
+              comandaId,
+              atual.version,
+            );
+            set((s) => ({ comandas: upsertComanda(s.comandas, comanda) }));
+            return true;
+          } catch (e) {
+            return handleMutationError(e, comandaId);
+          }
+        },
 
-      closeBill: async (tableId) => {
-        const updated = await repos.tables.closeBill(tableId);
-        set((s) => ({ tables: replaceTable(s.tables, updated) }));
-        get().pushToast("Conta fechada · mesa liberada");
-      },
+        cancelarFechamento: async (comandaId) => {
+          try {
+            const comanda = await repos.comandas.cancelarFechamento(comandaId);
+            set((s) => ({ comandas: upsertComanda(s.comandas, comanda) }));
+            get().pushToast("Fechamento cancelado");
+          } catch (e) {
+            await handleMutationError(e, comandaId);
+          }
+        },
 
-      setResponsavel: async (tableId, waiterId) => {
-        const updated = await repos.tables.setResponsavel(tableId, waiterId);
-        set((s) => ({ tables: replaceTable(s.tables, updated) }));
-      },
+        registrarPagamento: async (comandaId, metodo, simularErroFiscal) => {
+          const atual = get().comandas.find((c) => c.id === comandaId);
+          if (!atual) return false;
+          try {
+            const comanda = await repos.comandas.registrarPagamento(
+              comandaId,
+              metodo,
+              atual.version,
+              { simularErroFiscal },
+            );
+            set((s) => ({ comandas: upsertComanda(s.comandas, comanda) }));
+            return true;
+          } catch (e) {
+            return handleMutationError(e, comandaId);
+          }
+        },
 
-      setMesasVariant: (v) => set({ mesasVariant: v }),
-      setComandaVariant: (v) => set({ comandaVariant: v }),
+        retryFiscal: async (comandaId) => {
+          try {
+            const comanda = await repos.comandas.retryFiscal(comandaId);
+            set((s) => ({ comandas: upsertComanda(s.comandas, comanda) }));
+            get().pushToast("Reemitindo documento fiscal…");
+          } catch (e) {
+            await handleMutationError(e, comandaId);
+          }
+        },
 
-      pushToast: (msg) => {
-        set({ toast: msg });
-        if (toastTimer) clearTimeout(toastTimer);
-        toastTimer = setTimeout(() => set({ toast: null }), 2200);
-      },
-      clearToast: () => set({ toast: null }),
-    }),
+        transferirComanda: async (comandaId, garcomId) => {
+          try {
+            const comanda = await repos.comandas.transferir(comandaId, garcomId);
+            set((s) => ({ comandas: upsertComanda(s.comandas, comanda) }));
+            get().pushToast("Responsável atualizado");
+          } catch (e) {
+            await handleMutationError(e, comandaId);
+          }
+        },
+
+        receberPedido: async (pedidoId, estacao) => {
+          try {
+            const pedido = await repos.pedidos.receber(pedidoId, estacao);
+            set((s) => ({ pedidos: upsertPedido(s.pedidos, pedido) }));
+          } catch (e) {
+            await handleMutationError(e);
+          }
+        },
+
+        avancarItemPedido: async (pedidoId, itemId, para) => {
+          try {
+            const pedido = await repos.pedidos.avancarItem(pedidoId, itemId, para);
+            set((s) => ({ pedidos: upsertPedido(s.pedidos, pedido) }));
+          } catch (e) {
+            await handleMutationError(e);
+          }
+        },
+
+        salvarGarcom: async (id, patch) => {
+          const atual = get().garcons.find((g) => g.id === id);
+          if (!atual) return;
+          const salvo = await repos.garcons.save({ ...atual, ...patch });
+          set((s) => ({
+            garcons: s.garcons.map((g) => (g.id === id ? salvo : g)),
+          }));
+          get().pushToast("Garçom atualizado");
+        },
+
+        criarGarcom: async (data) => {
+          const id =
+            "g" +
+            (data.name.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-") || uid());
+          const garcom: Garcom = {
+            id,
+            name: data.name.trim(),
+            initials: initialsFrom(data.name),
+            color: GARCOM_PALETTE[get().garcons.length % GARCOM_PALETTE.length],
+            login: data.login.trim() || "@" + id,
+            pin: "0000",
+            papel: "garcom",
+            cargo: "Garçom",
+            status: data.status,
+            phone: data.phone?.trim() || undefined,
+            note: data.note?.trim() || undefined,
+          };
+          const salvo = await repos.garcons.save(garcom);
+          set((s) => ({ garcons: [...s.garcons, salvo] }));
+          get().pushToast("Garçom cadastrado");
+        },
+
+        applyEvento: (evt) => {
+          switch (evt.tipo) {
+            case "comanda.aberta":
+            case "comanda.fechada":
+              set((s) => ({
+                comandas: upsertComanda(s.comandas, evt.payload.comanda),
+                mesas: upsertMesa(s.mesas, evt.payload.mesa),
+              }));
+              break;
+            case "comanda.atualizada":
+            case "comanda.fechamento_iniciado":
+            case "pagamento.criado":
+            case "fiscal.erro":
+              set((s) => ({
+                comandas: upsertComanda(s.comandas, evt.payload.comanda),
+              }));
+              break;
+            case "pedido.enviado":
+              set((s) => ({
+                pedidos: upsertPedido(s.pedidos, evt.payload.pedido),
+                comandas: upsertComanda(s.comandas, evt.payload.comanda),
+              }));
+              break;
+            case "item.recebido":
+            case "item.em_preparo":
+            case "item.pronto":
+              set((s) => ({
+                pedidos: upsertPedido(s.pedidos, evt.payload.pedido),
+              }));
+              break;
+          }
+        },
+
+        setMesasVariant: (v) => set({ mesasVariant: v }),
+        setComandaVariant: (v) => set({ comandaVariant: v }),
+
+        pushToast: (msg) => {
+          set({ toast: msg });
+          if (toastTimer) clearTimeout(toastTimer);
+          toastTimer = setTimeout(() => set({ toast: null }), 2200);
+        },
+        clearToast: () => set({ toast: null }),
+      };
+    },
     {
-      name: "mesaplus.session.v1",
-      storage: createJSONStorage(() => localStorage),
-      // Only the session + UI prefs are persisted here; table state is persisted
-      // by the repo layer (see lib/api/mock/db.ts).
+      name: "mesaplus.session.v2",
+      // sessionStorage ON PURPOSE: each browser tab holds its own profile,
+      // which is what makes the two-tab demo (garçom + KDS) possible and
+      // mirrors per-device sessions in production.
+      storage: createJSONStorage(() => sessionStorage),
       partialize: (s) => ({
-        currentWaiterId: s.currentWaiterId,
+        sessao: s.sessao,
         mesasVariant: s.mesasVariant,
         comandaVariant: s.comandaVariant,
       }),
