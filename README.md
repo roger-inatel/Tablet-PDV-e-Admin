@@ -1,9 +1,10 @@
-# Mesa+ — Sistema de Restaurante (Frontend)
+# Mesa+ — Sistema de Restaurante (Frontend v2)
 
-PDV para garçom + Painel administrativo de restaurante. **Somente frontend**, com dados
-100% mockados, navegável e pronto para publicar na Vercel. A camada de dados está isolada
-atrás de um "repositório" para que um backend NestJS possa ser plugado depois sem mexer nas
-telas.
+Frontend de produção (ainda **100% mockado**) para operação de restaurante com **4
+superfícies**: PDV do garçom, painel administrativo/caixa e **KDS** (telas de
+cozinha e bar que substituem impressoras). Tudo estruturado por papéis, estações
+e estados — com **tempo real entre abas**, **concorrência otimista** e
+**fechamento fiscal assíncrono** — pronto para plugar um backend NestJS.
 
 > Stack: **Next.js (App Router) · React · TypeScript · Tailwind CSS · Zustand**
 
@@ -14,80 +15,101 @@ npm install
 npm run dev
 ```
 
-Abra http://localhost:3000. A raiz redireciona para `/admin`.
+Abra http://localhost:3000 — a raiz leva cada aba para a superfície do seu perfil
+(ou para `/login`).
 
-Outros scripts:
+> ⚠️ Não rode `npm run build` com o `npm run dev` aberto (ambos escrevem em `.next`).
 
-```bash
-npm run build   # build de produção
-npm run start   # sobe o build de produção
-npm run lint    # ESLint
-```
+## Perfis de demonstração
 
-### Como testar o fluxo
+| Perfil | Acesso | Vai para |
+|---|---|---|
+| Carlos Lima (garçom) | PIN **1234** | `/garcom` |
+| Marina Souza (garçonete) | PIN **2222** | `/garcom` |
+| Bruno Alves (garçom) | PIN **3333** | `/garcom` |
+| Júlia Reis (garçonete) | PIN **4444** | `/garcom` |
+| Renata Prado (gerente) | PIN **9999** | `/admin` |
+| Cozinha / Bar (KDS) | 1 toque, sem PIN | `/kds/cozinha` · `/kds/bar` |
 
-1. **Admin** (`/admin`): veja o dashboard e navegue pela barra lateral (Garçons, Mesas,
-   Impressoras, Produtos). Em **Mesas**, troque o responsável de uma mesa.
-2. **PDV** (clique em "PDV Garçom" na barra inferior, ou em "Abrir PDV do garçom"):
-   - Login: escolha **Carlos Lima** e digite o PIN **1234** → Entrar.
-   - PINs de demonstração: Carlos `1234`, Marina `2222`, Bruno `3333`, Júlia `4444`.
-   - Em **Mesas**, uma mesa livre abre a comanda; a mesa de outro garçom fica bloqueada.
-   - Na **comanda**: adicione itens pelo catálogo, ajuste quantidade, **Enviar cozinha/bar**
-     abre o modal separando os itens por setor → **Confirmar e imprimir**. Avance o status
-     do item até *Pronto* e use **Fechar conta** para liberar a mesa.
+A sessão é **por aba** (sessionStorage): abra duas abas com perfis diferentes
+(ex.: garçom + KDS Cozinha) e veja os eventos fluírem ao vivo entre elas.
+
+## Fluxo principal (demo em 2 abas)
+
+1. **Aba A** — login Carlos → mesa livre → adicionar itens → **Enviar pedido**
+   (o modal mostra o roteamento Cozinha/Bar).
+2. **Aba B** — KDS Cozinha: o pedido chega **sem refresh**, destacado como
+   **NOVO** → *Receber pedido* → *Iniciar* → *Pronto*.
+3. **Aba A** — os chips dos itens avançam ao vivo (Enviado → Recebido → Em
+   preparo → Pronto).
+4. **Fechar conta** → iniciar fechamento → método de pagamento (dinheiro/cartão/
+   PIX) → emissão NFC-e **assíncrona** → comanda fechada e mesa livre. Marque
+   *"Simular falha fiscal"* para demonstrar o erro + reemissão pelo caixa em
+   `/admin/comandas`.
+
+## Papéis e regras (espelhadas do futuro backend)
+
+- **Garçom**: vê todas as mesas; abre mesa livre; consulta comanda de outro
+  garçom **somente leitura**; lança/edita/envia/fecha apenas a própria comanda.
+- **Gerente**: painel completo + caixa (fechar/pagar comandas, reemitir NFC-e,
+  transferir responsável).
+- **Estação (KDS)**: vê só a própria fila; marca Recebido → Em preparo → Pronto.
+  Não vê preços nem fechamento.
+
+Regras em [`src/lib/domain/permissions.ts`](src/lib/domain/permissions.ts);
+máquinas de estado em [`src/lib/domain/maquinas.ts`](src/lib/domain/maquinas.ts).
 
 ## Rotas
 
-| Rota | Descrição |
-| --- | --- |
-| `/` | redireciona para `/admin` |
-| `/login` | login do garçom (cards + teclado PIN) |
-| `/admin` | dashboard (KPIs, comandas abertas, mesas por status, garçons em serviço) |
-| `/admin/garcons` | listagem de garçons (status, PIN, mesas atribuídas) |
-| `/admin/mesas` | grid de mesas com seleção de responsável |
-| `/admin/impressoras` | roteamento por setor + impressoras instaladas |
-| `/admin/produtos` | cardápio por categoria |
-| `/pdv` | grid de mesas do garçom (livre / sua / bloqueada) |
-| `/pdv/mesa/[id]` | comanda da mesa (itens, catálogo, envio, fechar conta) |
+| Rota | Superfície |
+|---|---|
+| `/login` | hub de perfis (garçons · gerência · KDS) |
+| `/garcom` · `/garcom/mesa/[id]` | PDV do garçom (grid de mesas · comanda) |
+| `/kds/cozinha` · `/kds/bar` | KDS das estações (board Recebido/Em preparo/Pronto) |
+| `/admin` | dashboard (KPIs, comandas ativas, alerta fiscal) |
+| `/admin/comandas` | comandas & caixa (fechar, pagar, reemitir NFC-e) |
+| `/admin/mesas` · `/admin/garcons` · `/admin/produtos` · `/admin/setores` | cadastros/operacão |
+| `/pdv*` · `/admin/impressoras` | redirects para as rotas novas |
 
-## Estrutura de pastas
+## Arquitetura (resumo)
 
 ```
 src/
-  app/                  # rotas (App Router) + layouts + globals.css
-    admin/              # painel administrativo (layout com sidebar)
-    pdv/                # PDV do garçom (layout com guard de sessão)
-    login/              # login do garçom
-  components/
-    ui/                 # primitivos reutilizáveis (StatusChip, Avatar, Icon, Modal…)
-    admin/              # componentes do painel (sidebar, KPIs, cards, tabelas)
-    pdv/                # componentes do PDV (mesa card, comanda, catálogo, modal)
-    shell/              # StoreProvider, ModuleSwitcher, ToastHost, RequireWaiter
-  data/                 # dados mockados (garçons, produtos, impressoras, mesas)
+  app/                  # rotas: login, garcom, kds/[estacao], admin/*
+  components/           # ui/ · shell/ (sessão, realtime, guards) · garcom/ · kds/ · admin/ · comanda/
+  data/                 # seeds: garcons, produtos, estacoes, mesas, comandas, pedidos
   lib/
-    api/                # SEAM de repositório: types.ts + impl. mock (troque por NestJS aqui)
-    domain/             # regras puras da comanda
-    format.ts           # formatação (R$) e ids
-  store/                # estado global (Zustand) + selectors derivados
-  types/                # tipos e enums de domínio
+    api/                # SEAM: types.ts (contratos) + mock/ (repos + fiscalService)
+    domain/             # permissions, maquinas (estados), pedido/comanda (puros)
+    realtime/           # contrato de eventos + transporte BroadcastChannel
+  store/                # Zustand: sessão por aba, cache reconciliado por eventos
+  types/                # modelo: Mesa ≠ Comanda ≠ Pedido ≠ ItemPedido
+docs/CONTRACTS.md       # contrato completo p/ o backend NestJS
 ```
 
-## Como conectar um backend NestJS depois
+- **Domínio**: `Comanda` (ABERTA → EM_FECHAMENTO → FECHADA, com `version`) ≠
+  `Pedido` (lote enviado, roteado por estação) ≠ `ItemPedido`
+  (ENVIADO → RECEBIDO → EM_PREPARO → PRONTO, avançado só pelo KDS).
+- **Tempo real**: eventos tipados com snapshot + guarda de versão
+  ([`src/lib/realtime`](src/lib/realtime)); mock via BroadcastChannel — trocar por
+  WebSocket/SSE sem tocar no store.
+- **Concorrência otimista**: `expectedVersion` em enviar/fechar/pagar → conflito
+  vira toast + refresh (sem retry silencioso).
+- **Fiscal assíncrono**: pagamento → `PROCESSANDO` → evento posterior `EMITIDA`
+  (fecha e libera a mesa) ou `ERRO` (retry pelo caixa).
 
-Toda a UI consome `repos` de [`src/lib/api/index.ts`](src/lib/api/index.ts), que hoje aponta
-para as implementações em `src/lib/api/mock/`. As **interfaces** estão em
-[`src/lib/api/types.ts`](src/lib/api/types.ts). Para usar a API real, crie implementações que
-façam `fetch(...)` e troque apenas o export em `index.ts` — nenhuma tela precisa mudar.
+## Como conectar o backend NestJS
 
-O estado operacional (mesas/comandas) é persistido localmente em `localStorage` (camada mock)
-e a sessão/preferências via `zustand/persist`. Ao plugar o backend, essa persistência local é
-substituída pelas chamadas HTTP.
+Toda a UI consome `repos` de [`src/lib/api/index.ts`](src/lib/api/index.ts) e o
+`RealtimeClient` de [`src/lib/realtime`](src/lib/realtime). Implemente ambos
+contra a API real (fetch + WS/SSE) e troque **apenas esses exports** — telas,
+store e regras não mudam. O contrato completo (endpoints ⇄ papéis ⇄ erros,
+schemas de eventos, máquinas de estado, versionamento) está em
+[`docs/CONTRACTS.md`](docs/CONTRACTS.md).
 
 ## Publicar na Vercel
 
-1. Suba o projeto para um repositório Git (GitHub/GitLab/Bitbucket).
-2. Em https://vercel.com, **Add New → Project** e importe o repositório.
-3. O framework é detectado automaticamente como **Next.js** (build `next build`).
-4. **Não há variáveis de ambiente** a configurar. Clique em **Deploy**.
-
-Alternativa via CLI: `npm i -g vercel` e rode `vercel` na pasta do projeto.
+1. Suba o repositório para o GitHub.
+2. Em https://vercel.com → **Add New → Project** → importe (framework Next.js
+   auto-detectado; **sem variáveis de ambiente**).
+3. **Deploy**. Cada `git push` na `main` redeploya.

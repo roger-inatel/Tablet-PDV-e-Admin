@@ -2,24 +2,24 @@
 
 import { useState } from "react";
 import { Avatar } from "@/components/ui/Avatar";
-import type { Waiter, WaiterStatus } from "@/types";
+import type { Garcom, GarcomStatus } from "@/types";
 
-export interface WaiterFormData {
+export interface GarcomFormData {
   name: string;
   login: string;
-  status: WaiterStatus;
+  status: GarcomStatus;
   phone: string;
   note: string;
 }
 
-interface WaiterEditDrawerProps {
-  /** Waiter being edited, or null to create a new one. */
-  waiter: Waiter | null;
+interface GarcomEditDrawerProps {
+  /** Garcom being edited, or null to create a new one. */
+  garcom: Garcom | null;
   onClose: () => void;
-  onSave: (data: WaiterFormData) => void | Promise<void>;
+  onSave: (data: GarcomFormData) => void | Promise<void>;
 }
 
-const STATUS_OPTIONS: { value: WaiterStatus; label: string }[] = [
+const STATUS_OPTIONS: { value: GarcomStatus; label: string }[] = [
   { value: "ATIVO", label: "Ativo" },
   { value: "PAUSA", label: "Em pausa" },
   { value: "INATIVO", label: "Inativo" },
@@ -30,18 +30,18 @@ const inputCls =
 const labelCls =
   "text-[0.74rem] font-bold uppercase tracking-[0.05em] text-ink-muted";
 
-export function WaiterEditDrawer({ waiter, onClose, onSave }: WaiterEditDrawerProps) {
-  const isEdit = !!waiter;
-  const [form, setForm] = useState<WaiterFormData>({
-    name: waiter?.name ?? "",
-    login: waiter?.login ?? "",
-    status: waiter?.status ?? "ATIVO",
-    phone: waiter?.phone ?? "",
-    note: waiter?.note ?? "",
+export function GarcomEditDrawer({ garcom, onClose, onSave }: GarcomEditDrawerProps) {
+  const isEdit = !!garcom;
+  const [form, setForm] = useState<GarcomFormData>({
+    name: garcom?.name ?? "",
+    login: garcom?.login ?? "",
+    status: garcom?.status ?? "ATIVO",
+    phone: garcom?.phone ?? "",
+    note: garcom?.note ?? "",
   });
   const [saving, setSaving] = useState(false);
 
-  const set = <K extends keyof WaiterFormData>(key: K, value: WaiterFormData[K]) =>
+  const set = <K extends keyof GarcomFormData>(key: K, value: GarcomFormData[K]) =>
     setForm((f) => ({ ...f, [key]: value }));
 
   const canSave = form.name.trim().length > 0 && !saving;
@@ -65,15 +65,15 @@ export function WaiterEditDrawer({ waiter, onClose, onSave }: WaiterEditDrawerPr
         {/* Header */}
         <div className="flex items-center justify-between gap-3 border-b border-line bg-white px-5 py-4">
           <div className="flex items-center gap-3">
-            {isEdit && waiter && (
-              <Avatar initials={waiter.initials} color={waiter.color} size={38} />
+            {isEdit && garcom && (
+              <Avatar initials={garcom.initials} color={garcom.color} size={38} />
             )}
             <div>
               <div className="text-[1.05rem] font-extrabold text-navy">
                 {isEdit ? "Editar garçom" : "Novo garçom"}
               </div>
               <div className="text-[0.8rem] text-ink-muted">
-                {isEdit ? waiter?.role : "Cadastro de demonstração"}
+                {isEdit ? garcom?.cargo : "Cadastro de demonstração"}
               </div>
             </div>
           </div>
@@ -115,7 +115,7 @@ export function WaiterEditDrawer({ waiter, onClose, onSave }: WaiterEditDrawerPr
               <select
                 className={inputCls}
                 value={form.status}
-                onChange={(e) => set("status", e.target.value as WaiterStatus)}
+                onChange={(e) => set("status", e.target.value as GarcomStatus)}
               >
                 {STATUS_OPTIONS.map((o) => (
                   <option key={o.value} value={o.value}>

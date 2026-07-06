@@ -10,8 +10,8 @@ import type { Category } from "@/types";
 
 export default function ProdutosPage() {
   const hydrated = useAppStore((s) => s.hydrated);
-  const products = useAppStore((s) => s.products);
-  const categories = useAppStore((s) => s.categories);
+  const products = useAppStore((s) => s.produtos);
+  const categories = useAppStore((s) => s.categorias);
   const [active, setActive] = useState<Category>("Entradas");
 
   const rows = useMemo(
@@ -30,8 +30,8 @@ export default function ProdutosPage() {
             <div className="rounded-card border border-line bg-white px-5 py-4">
               <h2 className="m-0 mb-0.5 text-[1.08rem] text-navy">Cardápio</h2>
               <p className="m-0 mb-[13px] text-[0.88rem] text-ink-muted">
-                Produtos vindos do banco local. A categorização define o setor de impressão
-                de cada item.
+                Produtos vindos do banco local. A categorização define para qual
+                estação (KDS) cada item é roteado.
               </p>
               <div className="flex flex-wrap gap-[7px]">
                 {categories.map((c) => {
@@ -66,8 +66,8 @@ export default function ProdutosPage() {
                       {p.name}
                     </div>
                     <div className="mt-1.5 flex items-center gap-2">
-                      <StatusChip kind={p.sector === "cozinha" ? "amber" : "blue"}>
-                        {p.sector === "cozinha" ? "Cozinha 01" : "Bar 01"}
+                      <StatusChip kind={p.estacao === "cozinha" ? "amber" : "blue"}>
+                        {p.estacao === "cozinha" ? "Cozinha" : "Bar"}
                       </StatusChip>
                       <span className="text-[0.78rem] text-ink-muted">{p.category}</span>
                     </div>
@@ -84,7 +84,7 @@ export default function ProdutosPage() {
               <table className="w-full border-collapse">
                 <thead>
                   <tr>
-                    {["Produto", "Categoria", "Setor / impressora", "Preço"].map((h, i) => (
+                    {["Produto", "Categoria", "Estação (KDS)", "Preço"].map((h, i) => (
                       <th
                         key={h}
                         className={`border-b border-line bg-[#f8fafc] px-3.5 py-3 text-[0.78rem] font-bold text-[#334155] ${
@@ -106,8 +106,8 @@ export default function ProdutosPage() {
                         {p.category}
                       </td>
                       <td className="px-3.5 py-3 text-center">
-                        <StatusChip kind={p.sector === "cozinha" ? "amber" : "blue"}>
-                          {p.sector === "cozinha" ? "Cozinha 01" : "Bar 01"}
+                        <StatusChip kind={p.estacao === "cozinha" ? "amber" : "blue"}>
+                          {p.estacao === "cozinha" ? "Cozinha" : "Bar"}
                         </StatusChip>
                       </td>
                       <td className="px-3.5 py-3 text-right text-[0.9rem] font-bold text-navy">

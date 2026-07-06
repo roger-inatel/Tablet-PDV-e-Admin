@@ -1,30 +1,41 @@
 "use client";
 
 import { StatusChip } from "@/components/ui/StatusChip";
-import type { Table, Waiter } from "@/types";
+import { comandaStatusMeta } from "@/lib/domain/comanda";
+import type { Comanda, Garcom, Mesa } from "@/types";
 
 interface AdminMesaCardProps {
-  table: Table;
-  waiters: Waiter[];
-  onAssign: (waiterId: string) => void;
+  mesa: Mesa;
+  comanda?: Comanda;
+  garcons: Garcom[];
+  /** Reassign the responsible waiter (gerente-only operation). */
+  onTransferir: (garcomId: string) => void;
 }
 
-export function AdminMesaCard({ table, waiters, onAssign }: AdminMesaCardProps) {
-  const occupied = table.status === "ocupada";
+export function AdminMesaCard({
+  mesa,
+  comanda,
+  garcons,
+  onTransferir,
+}: AdminMesaCardProps) {
+  const ocupada = !!comanda;
+  const meta = comanda
+    ? comandaStatusMeta(comanda.status)
+    : { kind: "green" as const, label: "Livre" };
 
   return (
     <div
       className={`grid gap-3 rounded-[13px] border bg-white p-4 ${
-        occupied ? "border-[#cfe1f5]" : "border-line"
+        ocupada ? "border-[#cfe1f5]" : "border-line"
       }`}
     >
       <div className="flex items-start justify-between">
         <div>
-          <div className="text-[1.15rem] font-extrabold text-navy">Mesa {table.num}</div>
-          <div className="mt-px text-[0.8rem] text-ink-muted">{table.seats} lugares</div>
+          <div className="text-[1.15rem] font-extrabold text-navy">Mesa {mesa.num}</div>
+          <div className="mt-px text-[0.8rem] text-ink-muted">{mesa.seats} lugares</div>
         </div>
-        <StatusChip kind={occupied ? "blue" : "green"}>
-          {occupied ? "Ocupada" : "Livre"}
+        <StatusChip kind={ocupada ? meta.kind : "green"}>
+          {ocupada ? meta.label : "Livre"}
         </StatusChip>
       </div>
 
@@ -33,16 +44,21 @@ export function AdminMesaCard({ table, waiters, onAssign }: AdminMesaCardProps) 
           Responsável
         </span>
         <select
-          value={table.waiterId ?? ""}
-          onChange={(e) => onAssign(e.target.value)}
-          className="h-10 w-full rounded-[9px] border border-[#dbe2ea] bg-white px-2.5 text-[0.88rem] text-navy"
+          value={comanda?.garcomId ?? ""}
+          onChange={(e) => e.target.value && onTransferir(e.target.value)}
+          disabled={!ocupada}
+          className={`h-10 w-full rounded-[9px] border border-[#dbe2ea] px-2.5 text-[0.88rem] ${
+            ocupada ? "bg-white text-navy" : "cursor-not-allowed bg-[#f8fafc] text-[#94a3b8]"
+          }`}
         >
-          <option value="">— Livre —</option>
-          {waiters.map((w) => (
-            <option key={w.id} value={w.id}>
-              {w.name}
-            </option>
-          ))}
+          {!ocupada && <option value="">— Livre —</option>}
+          {garcons
+            .filter((g) => g.papel === "garcom")
+            .map((g) => (
+              <option key={g.id} value={g.id}>
+                {g.name}
+              </option>
+            ))}
         </select>
       </label>
     </div>

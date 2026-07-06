@@ -3,40 +3,42 @@
 import { useMemo, useState } from "react";
 import { AdminHeader } from "@/components/admin/AdminHeader";
 import {
-  WaiterEditDrawer,
-  type WaiterFormData,
-} from "@/components/admin/WaiterEditDrawer";
+  GarcomEditDrawer,
+  type GarcomFormData,
+} from "@/components/admin/GarcomEditDrawer";
 import { Avatar } from "@/components/ui/Avatar";
 import { StatusChip } from "@/components/ui/StatusChip";
 import { Loader } from "@/components/ui/Loader";
 import { useAppStore } from "@/store/useAppStore";
-import { tableCountForWaiter, waiterStatusMeta } from "@/store/selectors";
-import type { Waiter } from "@/types";
+import { garcomStatusMeta, mesasDoGarcom } from "@/store/selectors";
+import type { Garcom } from "@/types";
 
-type DrawerState = { mode: "edit"; waiter: Waiter } | { mode: "create" } | null;
+type DrawerState = { mode: "edit"; garcom: Garcom } | { mode: "create" } | null;
 
 export default function GarconsPage() {
   const hydrated = useAppStore((s) => s.hydrated);
-  const waiters = useAppStore((s) => s.waiters);
-  const tables = useAppStore((s) => s.tables);
-  const updateWaiter = useAppStore((s) => s.updateWaiter);
-  const createWaiter = useAppStore((s) => s.createWaiter);
+  const garcons = useAppStore((s) => s.garcons);
+  const comandas = useAppStore((s) => s.comandas);
+  const salvarGarcom = useAppStore((s) => s.salvarGarcom);
+  const criarGarcom = useAppStore((s) => s.criarGarcom);
 
   const [drawer, setDrawer] = useState<DrawerState>(null);
 
   const rows = useMemo(
     () =>
-      waiters.map((w) => ({
-        waiter: w,
-        mesas: tableCountForWaiter(tables, w.id),
-        statusMeta: waiterStatusMeta(w.status),
-      })),
-    [waiters, tables],
+      garcons
+        .filter((g) => g.papel === "garcom")
+        .map((g) => ({
+          garcom: g,
+          mesas: mesasDoGarcom(comandas, g.id),
+          statusMeta: garcomStatusMeta(g.status),
+        })),
+    [garcons, comandas],
   );
 
-  const onSave = async (data: WaiterFormData) => {
+  const onSave = async (data: GarcomFormData) => {
     if (drawer?.mode === "edit") {
-      await updateWaiter(drawer.waiter.id, {
+      await salvarGarcom(drawer.garcom.id, {
         name: data.name,
         login: data.login,
         status: data.status,
@@ -44,7 +46,7 @@ export default function GarconsPage() {
         note: data.note,
       });
     } else {
-      await createWaiter(data);
+      await criarGarcom(data);
     }
     setDrawer(null);
   };
@@ -75,16 +77,16 @@ export default function GarconsPage() {
 
             {/* Mobile: cards */}
             <div className="grid gap-3 md:hidden">
-              {rows.map(({ waiter: w, mesas, statusMeta }) => (
+              {rows.map(({ garcom: g, mesas, statusMeta }) => (
                 <div
-                  key={w.id}
+                  key={g.id}
                   className="grid gap-3 rounded-card border border-line bg-white p-4"
                 >
                   <div className="flex items-center gap-2.5">
-                    <Avatar initials={w.initials} color={w.color} size={38} />
+                    <Avatar initials={g.initials} color={g.color} size={38} />
                     <div className="grid min-w-0 gap-px">
-                      <strong className="text-[0.95rem] text-navy">{w.name}</strong>
-                      <span className="text-[0.78rem] text-ink-muted">{w.role}</span>
+                      <strong className="text-[0.95rem] text-navy">{g.name}</strong>
+                      <span className="text-[0.78rem] text-ink-muted">{g.cargo}</span>
                     </div>
                     <StatusChip kind={statusMeta.kind} className="ml-auto">
                       {statusMeta.label}
@@ -92,13 +94,13 @@ export default function GarconsPage() {
                   </div>
                   <div className="flex items-center justify-between text-[0.84rem] text-[#475569]">
                     <span>
-                      <span className="font-semibold text-navy">{w.login}</span> · PIN ••••
+                      <span className="font-semibold text-navy">{g.login}</span> · PIN ••••
                     </span>
                     <span className="font-semibold">{mesas} mesas</span>
                   </div>
                   <button
                     type="button"
-                    onClick={() => setDrawer({ mode: "edit", waiter: w })}
+                    onClick={() => setDrawer({ mode: "edit", garcom: g })}
                     className="rounded-lg border border-[#dbe2ea] bg-white py-2.5 text-[0.85rem] font-bold text-[#334155]"
                   >
                     Editar
@@ -127,19 +129,19 @@ export default function GarconsPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {rows.map(({ waiter: w, mesas, statusMeta }) => (
-                    <tr key={w.id} className="border-b border-[#eef1f6]">
+                  {rows.map(({ garcom: g, mesas, statusMeta }) => (
+                    <tr key={g.id} className="border-b border-[#eef1f6]">
                       <td className="px-3.5 py-[13px]">
                         <span className="inline-flex items-center gap-2.5">
-                          <Avatar initials={w.initials} color={w.color} size={34} />
+                          <Avatar initials={g.initials} color={g.color} size={34} />
                           <span className="grid gap-px">
-                            <strong className="text-[0.9rem] text-navy">{w.name}</strong>
-                            <span className="text-[0.76rem] text-ink-muted">{w.role}</span>
+                            <strong className="text-[0.9rem] text-navy">{g.name}</strong>
+                            <span className="text-[0.76rem] text-ink-muted">{g.cargo}</span>
                           </span>
                         </span>
                       </td>
                       <td className="px-3.5 py-[13px] text-[0.88rem] text-[#475569]">
-                        <span className="font-semibold text-navy">{w.login}</span> · PIN
+                        <span className="font-semibold text-navy">{g.login}</span> · PIN
                         ••••
                       </td>
                       <td className="px-3.5 py-[13px] text-center text-[0.9rem] font-semibold text-[#475569]">
@@ -151,7 +153,7 @@ export default function GarconsPage() {
                       <td className="px-3.5 py-[13px] text-right">
                         <button
                           type="button"
-                          onClick={() => setDrawer({ mode: "edit", waiter: w })}
+                          onClick={() => setDrawer({ mode: "edit", garcom: g })}
                           className="rounded-lg border border-[#dbe2ea] bg-white px-3 py-1.5 text-[0.82rem] font-semibold text-[#334155]"
                         >
                           Editar
@@ -167,8 +169,8 @@ export default function GarconsPage() {
       </div>
 
       {drawer && (
-        <WaiterEditDrawer
-          waiter={drawer.mode === "edit" ? drawer.waiter : null}
+        <GarcomEditDrawer
+          garcom={drawer.mode === "edit" ? drawer.garcom : null}
           onClose={() => setDrawer(null)}
           onSave={onSave}
         />

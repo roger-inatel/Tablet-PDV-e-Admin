@@ -4,12 +4,14 @@ import { AdminHeader } from "@/components/admin/AdminHeader";
 import { AdminMesaCard } from "@/components/admin/AdminMesaCard";
 import { Loader } from "@/components/ui/Loader";
 import { useAppStore } from "@/store/useAppStore";
+import { comandaById } from "@/store/selectors";
 
 export default function MesasAdminPage() {
   const hydrated = useAppStore((s) => s.hydrated);
-  const tables = useAppStore((s) => s.tables);
-  const waiters = useAppStore((s) => s.waiters);
-  const setResponsavel = useAppStore((s) => s.setResponsavel);
+  const mesas = useAppStore((s) => s.mesas);
+  const comandas = useAppStore((s) => s.comandas);
+  const garcons = useAppStore((s) => s.garcons);
+  const transferirComanda = useAppStore((s) => s.transferirComanda);
   const pushToast = useAppStore((s) => s.pushToast);
 
   return (
@@ -24,7 +26,7 @@ export default function MesasAdminPage() {
               <div>
                 <h2 className="m-0 mb-0.5 text-[1.08rem] text-navy">Mesas do salão</h2>
                 <p className="m-0 text-[0.88rem] text-ink-muted">
-                  Cada mesa tem um responsável. Defina abaixo qual garçom opera cada mesa.
+                  A ocupação vem da comanda. Transfira o responsável quando necessário.
                 </p>
               </div>
               <button
@@ -37,14 +39,20 @@ export default function MesasAdminPage() {
             </div>
 
             <div className="grid gap-[13px] [grid-template-columns:repeat(auto-fill,minmax(248px,1fr))]">
-              {tables.map((t) => (
-                <AdminMesaCard
-                  key={t.id}
-                  table={t}
-                  waiters={waiters}
-                  onAssign={(waiterId) => setResponsavel(t.id, waiterId || null)}
-                />
-              ))}
+              {mesas.map((mesa) => {
+                const comanda = comandaById(comandas, mesa.comandaId);
+                return (
+                  <AdminMesaCard
+                    key={mesa.id}
+                    mesa={mesa}
+                    comanda={comanda}
+                    garcons={garcons}
+                    onTransferir={(garcomId) =>
+                      comanda && transferirComanda(comanda.id, garcomId)
+                    }
+                  />
+                );
+              })}
             </div>
           </div>
         )}
