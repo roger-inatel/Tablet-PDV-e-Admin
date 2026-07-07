@@ -9,7 +9,8 @@ export interface AdminNavItem {
   title: string;
 }
 
-// Shared admin navigation config — drives the sidebar links and each page header.
+// Shared admin navigation config — drives the sidebar links and each page
+// header. Labels/kickers/titles are user-facing copy (pt-BR).
 export const ADMIN_NAV: AdminNavItem[] = [
   {
     key: "dashboard",
@@ -20,40 +21,40 @@ export const ADMIN_NAV: AdminNavItem[] = [
     title: "Dashboard",
   },
   {
-    key: "comandas",
-    href: "/admin/comandas",
+    key: "checks",
+    href: "/admin/checks",
     label: "Comandas",
     icon: "printer",
     kicker: "Operação",
     title: "Comandas & caixa",
   },
   {
-    key: "mesas",
-    href: "/admin/mesas",
+    key: "tables",
+    href: "/admin/tables",
     label: "Mesas",
     icon: "grid",
     kicker: "Operação",
     title: "Mesas do salão",
   },
   {
-    key: "garcons",
-    href: "/admin/garcons",
+    key: "waiters",
+    href: "/admin/waiters",
     label: "Garçons",
     icon: "users",
     kicker: "Cadastros",
     title: "Garçons",
   },
   {
-    key: "produtos",
-    href: "/admin/produtos",
+    key: "products",
+    href: "/admin/products",
     label: "Produtos",
     icon: "box",
     kicker: "Cadastros",
     title: "Produtos",
   },
   {
-    key: "setores",
-    href: "/admin/setores",
+    key: "stations",
+    href: "/admin/stations",
     label: "Setores",
     icon: "flame",
     kicker: "Sistema",

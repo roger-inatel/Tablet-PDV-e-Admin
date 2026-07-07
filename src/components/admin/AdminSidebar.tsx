@@ -10,11 +10,11 @@ export function AdminSidebar() {
   const pathname = usePathname();
   const router = useRouter();
   const logout = useAppStore((s) => s.logout);
-  const garcons = useAppStore((s) => s.garcons);
-  const sessao = useAppStore((s) => s.sessao);
-  const gerente =
-    sessao && sessao.papel === "gerente"
-      ? garcons.find((g) => g.id === sessao.garcomId)
+  const waiters = useAppStore((s) => s.waiters);
+  const session = useAppStore((s) => s.session);
+  const manager =
+    session && session.role === "manager"
+      ? waiters.find((w) => w.id === session.waiterId)
       : undefined;
 
   return (
@@ -73,14 +73,14 @@ export function AdminSidebar() {
       <div className="mt-auto hidden gap-2.5 rounded-xl border border-white/10 bg-white/[0.04] p-3 md:grid">
         <div className="flex items-center gap-2.5">
           <span className="inline-flex h-[30px] w-[30px] items-center justify-center rounded-lg bg-gradient-to-br from-brand-900 to-[#1e3a5f] text-[0.8rem] font-extrabold text-white">
-            {gerente?.initials ?? "GR"}
+            {manager?.initials ?? "GR"}
           </span>
           <div className="grid min-w-0 gap-px">
             <span className="text-[0.64rem] font-bold uppercase tracking-[0.1em] text-[#64748b]">
-              {gerente?.cargo ?? "Gerente"}
+              {manager?.roleLabel ?? "Gerente"}
             </span>
             <strong className="truncate text-[0.84rem] font-semibold text-[#e2e8f0]">
-              {gerente?.name ?? ""}
+              {manager?.name ?? ""}
             </strong>
           </div>
         </div>

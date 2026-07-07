@@ -15,8 +15,8 @@ export function RealtimeBridge() {
   useEffect(() => {
     if (!hydrated) return;
 
-    const unsubscribe = getRealtimeClient().subscribe((evt) => {
-      useAppStore.getState().applyEvento(evt);
+    const unsubscribe = getRealtimeClient().subscribe((event) => {
+      useAppStore.getState().applyEvent(event);
     });
 
     const onVisible = () => {

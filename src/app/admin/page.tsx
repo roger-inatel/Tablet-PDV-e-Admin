@@ -9,102 +9,102 @@ import { StatusChip } from "@/components/ui/StatusChip";
 import { Loader } from "@/components/ui/Loader";
 import { useAppStore } from "@/store/useAppStore";
 import {
-  comandasAtivas,
-  comandasComErroFiscal,
-  comandasEmFechamento,
-  garconsAtivos,
-  garconsById,
-  mesasDoGarcom,
-  pedidosDaComanda,
-  totalEmAberto,
+  activeChecks,
+  activeWaiters,
+  checksInCheckout,
+  checksWithFiscalError,
+  ordersOfCheck,
+  outstandingTotal,
+  waiterTableCount,
+  waitersById,
 } from "@/store/selectors";
-import { comandaStatusMeta } from "@/lib/domain/comanda";
-import { totalComanda } from "@/lib/domain/pedido";
+import { checkStatusMeta } from "@/lib/domain/check";
+import { checkTotal } from "@/lib/domain/order";
 import { fmt, firstName } from "@/lib/format";
 import type { ChipKind } from "@/types";
 
 export default function DashboardPage() {
   const hydrated = useAppStore((s) => s.hydrated);
-  const mesas = useAppStore((s) => s.mesas);
-  const comandas = useAppStore((s) => s.comandas);
-  const pedidos = useAppStore((s) => s.pedidos);
-  const garcons = useAppStore((s) => s.garcons);
+  const tables = useAppStore((s) => s.tables);
+  const checks = useAppStore((s) => s.checks);
+  const orders = useAppStore((s) => s.orders);
+  const waiters = useAppStore((s) => s.waiters);
 
   const data = useMemo(() => {
-    const ocupadas = mesas.filter((m) => m.comandaId !== null);
-    const livres = mesas.filter((m) => m.comandaId === null);
-    const ativas = comandasAtivas(comandas);
-    const emFechamento = comandasEmFechamento(comandas);
-    const errosFiscais = comandasComErroFiscal(comandas);
-    const ativos = garconsAtivos(garcons);
-    const gById = garconsById(garcons);
-    const totalMesas = mesas.length || 1;
+    const occupied = tables.filter((t) => t.checkId !== null);
+    const free = tables.filter((t) => t.checkId === null);
+    const active = activeChecks(checks);
+    const inCheckout = checksInCheckout(checks);
+    const fiscalErrors = checksWithFiscalError(checks);
+    const activeStaff = activeWaiters(waiters);
+    const byId = waitersById(waiters);
+    const totalTables = tables.length || 1;
 
     const kpis = [
       {
         label: "Mesas ocupadas",
-        value: `${ocupadas.length}/${mesas.length}`,
-        helper: `${livres.length} mesas livres`,
+        value: `${occupied.length}/${tables.length}`,
+        helper: `${free.length} mesas livres`,
         highlight: true,
       },
       {
         label: "Comandas abertas",
-        value: String(ativas.length),
+        value: String(active.length),
         helper: "em atendimento agora",
       },
       {
         label: "Em fechamento",
-        value: String(emFechamento.length),
+        value: String(inCheckout.length),
         helper: "aguardando pagamento/fiscal",
       },
       {
         label: "Em aberto",
-        value: fmt(totalEmAberto(comandas, pedidos)),
+        value: fmt(outstandingTotal(checks, orders)),
         helper: "a receber nas mesas",
       },
     ];
 
-    const rows = ativas.map((c) => {
-      const g = gById[c.garcomId];
-      const meus = pedidosDaComanda(pedidos, c.id);
-      const itens =
-        c.itensDraft.reduce((s, d) => s + d.qtd, 0) +
-        meus.reduce((s, p) => s + p.itens.reduce((a, i) => a + i.qtd, 0), 0);
-      const fiscalErro = c.fiscal?.status === "ERRO";
-      const meta = fiscalErro
+    const rows = active.map((c) => {
+      const w = byId[c.waiterId];
+      const checkOrders = ordersOfCheck(orders, c.id);
+      const items =
+        c.draftItems.reduce((s, d) => s + d.qty, 0) +
+        checkOrders.reduce((s, o) => s + o.items.reduce((a, i) => a + i.qty, 0), 0);
+      const fiscalError = c.fiscal?.status === "ERROR";
+      const meta = fiscalError
         ? { kind: "red" as ChipKind, label: "Erro fiscal" }
-        : comandaStatusMeta(c.status);
+        : checkStatusMeta(c.status);
       return {
         id: c.id,
-        mesa: `Mesa ${c.mesaNum}`,
-        garcom: g ? firstName(g.name) : "—",
-        initials: g?.initials ?? "--",
-        color: g?.color ?? "#94a3b8",
-        itens,
-        total: fmt(totalComanda(c, meus)),
+        table: `Mesa ${c.tableNum}`,
+        waiter: w ? firstName(w.name) : "—",
+        initials: w?.initials ?? "--",
+        color: w?.color ?? "#94a3b8",
+        items,
+        total: fmt(checkTotal(c, checkOrders)),
         meta,
       };
     });
 
     const bars = [
-      { label: "Ocupadas", count: ocupadas.length, color: "#2563eb" },
-      { label: "Livres", count: livres.length, color: "#16a34a" },
+      { label: "Ocupadas", count: occupied.length, color: "#2563eb" },
+      { label: "Livres", count: free.length, color: "#16a34a" },
     ].map((b) => ({
       ...b,
-      width: `${Math.round((b.count / totalMesas) * 100)}%`,
+      width: `${Math.round((b.count / totalTables) * 100)}%`,
     }));
 
-    const servico = ativos.map((g) => ({
-      id: g.id,
-      name: g.name,
-      cargo: g.cargo,
-      initials: g.initials,
-      color: g.color,
-      mesas: mesasDoGarcom(comandas, g.id),
+    const onDuty = activeStaff.map((w) => ({
+      id: w.id,
+      name: w.name,
+      roleLabel: w.roleLabel,
+      initials: w.initials,
+      color: w.color,
+      tableCount: waiterTableCount(checks, w.id),
     }));
 
-    return { kpis, rows, bars, servico, errosFiscais };
-  }, [mesas, comandas, pedidos, garcons]);
+    return { kpis, rows, bars, onDuty, fiscalErrors };
+  }, [tables, checks, orders, waiters]);
 
   return (
     <>
@@ -114,14 +114,14 @@ export default function DashboardPage() {
           <Loader />
         ) : (
           <div className="grid gap-[18px] animate-[mfade_.22s_ease]">
-            {data.errosFiscais.length > 0 && (
+            {data.fiscalErrors.length > 0 && (
               <Link
-                href="/admin/comandas"
+                href="/admin/checks"
                 className="flex flex-wrap items-center justify-between gap-2 rounded-card border border-[#fecaca] bg-[#fef2f2] px-4 py-3"
               >
                 <span className="text-[0.9rem] font-bold text-[#991b1b]">
-                  ⚠ {data.errosFiscais.length}{" "}
-                  {data.errosFiscais.length === 1
+                  ⚠ {data.fiscalErrors.length}{" "}
+                  {data.fiscalErrors.length === 1
                     ? "comanda com erro fiscal"
                     : "comandas com erro fiscal"}
                 </span>
@@ -140,7 +140,7 @@ export default function DashboardPage() {
 
             {/* Two-column body */}
             <div className="grid gap-4 lg:grid-cols-[minmax(0,1.7fr)_minmax(280px,1fr)]">
-              {/* Comandas ativas */}
+              {/* Active checks */}
               <div className="rounded-card border border-line bg-white p-5">
                 <div className="mb-3 flex items-center justify-between">
                   <h2 className="m-0 text-[1.08rem] text-navy">Comandas ativas</h2>
@@ -157,16 +157,17 @@ export default function DashboardPage() {
                       className="grid gap-2 rounded-[11px] border border-line bg-[#fbfcfe] px-3.5 py-3"
                     >
                       <div className="flex items-center justify-between">
-                        <strong className="text-[0.95rem] text-navy">{r.mesa}</strong>
+                        <strong className="text-[0.95rem] text-navy">{r.table}</strong>
                         <StatusChip kind={r.meta.kind}>{r.meta.label}</StatusChip>
                       </div>
                       <div className="flex items-center justify-between gap-2">
                         <span className="inline-flex items-center gap-2 text-[0.86rem] text-[#475569]">
                           <Avatar initials={r.initials} color={r.color} size={24} />
-                          {r.garcom}
+                          {r.waiter}
                         </span>
                         <span className="text-[0.84rem] text-ink-muted">
-                          {r.itens} itens · <strong className="text-navy">{r.total}</strong>
+                          {r.items} itens ·{" "}
+                          <strong className="text-navy">{r.total}</strong>
                         </span>
                       </div>
                     </div>
@@ -199,16 +200,16 @@ export default function DashboardPage() {
                       {data.rows.map((r) => (
                         <tr key={r.id} className="border-b border-[#eef1f6]">
                           <td className="px-2.5 py-3 text-[0.9rem] font-bold text-navy">
-                            {r.mesa}
+                            {r.table}
                           </td>
                           <td className="px-2.5 py-3 text-[0.9rem]">
                             <span className="inline-flex items-center gap-2">
                               <Avatar initials={r.initials} color={r.color} size={26} />
-                              {r.garcom}
+                              {r.waiter}
                             </span>
                           </td>
                           <td className="px-2.5 py-3 text-center text-[0.9rem] text-[#475569]">
-                            {r.itens}
+                            {r.items}
                           </td>
                           <td className="px-2.5 py-3 text-right text-[0.9rem] font-bold text-navy">
                             {r.total}
@@ -260,18 +261,20 @@ export default function DashboardPage() {
                     Garçons em serviço
                   </h2>
                   <div className="grid gap-2.5">
-                    {data.servico.map((g) => (
+                    {data.onDuty.map((w) => (
                       <div
-                        key={g.id}
+                        key={w.id}
                         className="flex items-center gap-2.5 rounded-[10px] border border-[#eef1f6] bg-[#fbfcfe] px-2.5 py-2"
                       >
-                        <Avatar initials={g.initials} color={g.color} size={32} />
+                        <Avatar initials={w.initials} color={w.color} size={32} />
                         <div className="grid min-w-0 flex-1 gap-px">
-                          <strong className="text-[0.86rem] text-navy">{g.name}</strong>
-                          <span className="text-[0.76rem] text-ink-muted">{g.cargo}</span>
+                          <strong className="text-[0.86rem] text-navy">{w.name}</strong>
+                          <span className="text-[0.76rem] text-ink-muted">
+                            {w.roleLabel}
+                          </span>
                         </div>
                         <span className="text-[0.8rem] font-semibold text-[#475569]">
-                          {g.mesas} mesas
+                          {w.tableCount} mesas
                         </span>
                       </div>
                     ))}

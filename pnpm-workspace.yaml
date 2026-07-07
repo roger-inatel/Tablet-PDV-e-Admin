@@ -1,0 +1,5 @@
+# pnpm config (single-package repo).
+# Dependencies allowed to run postinstall build scripts:
+allowBuilds:
+  sharp: true
+  unrs-resolver: true

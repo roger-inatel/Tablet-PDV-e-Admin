@@ -4,50 +4,50 @@ import { useRouter } from "next/navigation";
 import { Avatar } from "@/components/ui/Avatar";
 import { Icon } from "@/components/ui/Icon";
 import { useAppStore } from "@/store/useAppStore";
-import { garconsById } from "@/store/selectors";
+import { waitersById } from "@/store/selectors";
 
 interface SessionBadgeProps {
   /** Dark chrome (KDS) variant. */
   dark?: boolean;
 }
 
-/** Current profile chip + "Sair" — replaces the old ModuleSwitcher. */
+/** Current profile chip + "Sair". */
 export function SessionBadge({ dark }: SessionBadgeProps) {
   const router = useRouter();
-  const sessao = useAppStore((s) => s.sessao);
-  const garcons = useAppStore((s) => s.garcons);
-  const estacoes = useAppStore((s) => s.estacoes);
+  const session = useAppStore((s) => s.session);
+  const waiters = useAppStore((s) => s.waiters);
+  const stations = useAppStore((s) => s.stations);
   const logout = useAppStore((s) => s.logout);
 
-  if (!sessao) return null;
+  if (!session) return null;
 
-  const sair = () => {
+  const signOut = () => {
     logout();
     router.replace("/login");
   };
 
   let avatar: React.ReactNode = null;
-  let nome = "";
-  let cargo = "";
+  let name = "";
+  let subtitle = "";
 
-  if (sessao.papel === "estacao") {
-    const est = estacoes.find((e) => e.id === sessao.estacao);
-    nome = est?.nome ?? sessao.estacao;
-    cargo = "Estação KDS";
+  if (session.role === "station") {
+    const station = stations.find((s) => s.id === session.station);
+    name = station?.name ?? session.station;
+    subtitle = "Estação KDS";
     avatar = (
       <span
         className="inline-flex h-8 w-8 items-center justify-center rounded-[9px] text-white"
-        style={{ background: est?.cor ?? "#334155" }}
+        style={{ background: station?.color ?? "#334155" }}
       >
-        <Icon name={est?.icone ?? "flame"} size={16} />
+        <Icon name={station?.icon ?? "flame"} size={16} />
       </span>
     );
   } else {
-    const g = garconsById(garcons)[sessao.garcomId];
-    nome = g?.name ?? "";
-    cargo = g?.cargo ?? "";
+    const w = waitersById(waiters)[session.waiterId];
+    name = w?.name ?? "";
+    subtitle = w?.roleLabel ?? "";
     avatar = (
-      <Avatar initials={g?.initials ?? ""} color={g?.color ?? "#94a3b8"} size={32} />
+      <Avatar initials={w?.initials ?? ""} color={w?.color ?? "#94a3b8"} size={32} />
     );
   }
 
@@ -62,17 +62,17 @@ export function SessionBadge({ dark }: SessionBadgeProps) {
         <strong
           className={`truncate text-[0.82rem] ${dark ? "text-slate-100" : "text-navy"}`}
         >
-          {nome}
+          {name}
         </strong>
         <span
           className={`text-[0.7rem] ${dark ? "text-slate-400" : "text-ink-muted"}`}
         >
-          {cargo}
+          {subtitle}
         </span>
       </div>
       <button
         type="button"
-        onClick={sair}
+        onClick={signOut}
         className={`rounded-[8px] border px-2.5 py-1.5 text-[0.78rem] font-bold ${
           dark
             ? "border-white/15 bg-transparent text-slate-300"

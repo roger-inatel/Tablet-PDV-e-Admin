@@ -71,7 +71,7 @@ body {
    comanda item list and the login keypad stay usable (Tailwind has no
    height-based breakpoints by default). */
 @media (max-height: 540px) {
-  .pdv-chrome {
+  .pos-chrome {
     padding-top: 0.45rem;
     padding-bottom: 0.45rem;
   }

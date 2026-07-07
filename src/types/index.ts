@@ -1,8 +1,9 @@
-// Domain model for the Mesa+ restaurant POS (v2 — production alignment).
-// Mesa ≠ Comanda ≠ Pedido ≠ ItemPedido; roles/sessions; async fiscal closing.
-// Portuguese ubiquitous language (no diacritics in identifiers) — these shapes
-// are the contract the future NestJS backend implements (docs/CONTRACTS.md).
+// Domain model for the Mesa+ restaurant POS.
+// Table ≠ Check ≠ Order ≠ OrderItem; role-based sessions; async fiscal closing.
+// All identifiers in English; user-facing labels stay in pt-BR at the UI layer.
+// These shapes are the contract the NestJS backend implements (docs/CONTRACTS.md).
 
+/** Menu categories are user-visible content — values stay in pt-BR. */
 export type Category =
   | "Entradas"
   | "Pratos"
@@ -11,27 +12,27 @@ export type Category =
   | "Bar";
 
 /** Preparation station (KDS). */
-export type Estacao = "cozinha" | "bar";
+export type Station = "kitchen" | "bar";
 
 /** Authenticated role of a session. */
-export type Papel = "garcom" | "gerente" | "estacao";
+export type Role = "waiter" | "manager" | "station";
 
-export type GarcomStatus = "ATIVO" | "PAUSA" | "INATIVO";
-export type ComandaStatus = "ABERTA" | "EM_FECHAMENTO" | "FECHADA";
-export type ItemPedidoStatus = "ENVIADO" | "RECEBIDO" | "EM_PREPARO" | "PRONTO";
-export type FiscalStatus = "PROCESSANDO" | "EMITIDA" | "ERRO";
-export type MetodoPagamento = "dinheiro" | "cartao" | "pix";
+export type WaiterStatus = "ACTIVE" | "ON_BREAK" | "INACTIVE";
+export type CheckStatus = "OPEN" | "IN_CHECKOUT" | "CLOSED";
+export type OrderItemStatus = "SENT" | "RECEIVED" | "PREPARING" | "READY";
+export type FiscalStatus = "PROCESSING" | "ISSUED" | "ERROR";
+export type PaymentMethod = "cash" | "card" | "pix";
 
-/** A table. Occupancy is DERIVED: comandaId !== null means occupied. */
-export interface Mesa {
+/** A table. Occupancy is DERIVED: checkId !== null means occupied. */
+export interface Table {
   id: number;
   num: number;
   seats: number;
-  comandaId: string | null;
+  checkId: string | null;
 }
 
 /** Staff member (waiter or manager). */
-export interface Garcom {
+export interface Waiter {
   id: string;
   name: string;
   initials: string;
@@ -40,119 +41,120 @@ export interface Garcom {
   login: string;
   pin: string;
   /** Auth role used by permission logic. */
-  papel: "garcom" | "gerente";
-  /** Display label ("Garçom", "Garçonete", "Gerente"). */
-  cargo: string;
-  status: GarcomStatus;
+  role: "waiter" | "manager";
+  /** Display label shown in the UI ("Garçom", "Garçonete", "Gerente"). */
+  roleLabel: string;
+  status: WaiterStatus;
   phone?: string;
   note?: string;
 }
 
-/** Menu product. `estacao` defines KDS routing. */
-export interface Produto {
+/** Menu product. `station` defines KDS routing. */
+export interface Product {
   id: string;
   name: string;
   category: Category;
-  estacao: Estacao;
+  station: Station;
   price: number;
 }
 
-/** Station configuration (the /admin/setores entity; KDS chrome). */
-export interface EstacaoConfig {
-  id: Estacao;
-  nome: string;
-  descricao: string;
+/** Station configuration (the /admin/stations entity; KDS chrome). */
+export interface StationConfig {
+  id: Station;
+  /** Display name shown in the UI (pt-BR). */
+  name: string;
+  description: string;
   /** Accent color (hex) for KDS chrome / chips. */
-  cor: string;
-  icone: "flame" | "wine";
+  color: string;
+  icon: "flame" | "wine";
   /** Which menu categories route to this station. */
-  categorias: Category[];
+  categories: Category[];
 }
 
-/** Draft line on an open comanda — not yet dispatched (no status field). */
-export interface ItemDraft {
+/** Draft line on an open check — not yet dispatched (no status field). */
+export interface DraftItem {
   key: string;
-  produtoId: string;
-  nome: string;
-  precoUnit: number;
-  estacao: Estacao;
-  qtd: number;
+  productId: string;
+  name: string;
+  unitPrice: number;
+  station: Station;
+  qty: number;
 }
 
-export interface Pagamento {
+export interface Payment {
   id: string;
-  metodo: MetodoPagamento;
-  valor: number;
-  criadoEm: string; // ISO
+  method: PaymentMethod;
+  amount: number;
+  createdAt: string; // ISO
 }
 
-/** Fiscal emission sub-state (only meaningful after pagamento is created). */
+/** Fiscal emission sub-state (only meaningful after payment is created). */
 export interface Fiscal {
   status: FiscalStatus;
-  tentativas: number;
-  erroMsg?: string;
-  emitidaEm?: string; // ISO
+  attempts: number;
+  errorMsg?: string;
+  issuedAt?: string; // ISO
   /** Mock NFC-e access key. */
-  chave?: string;
+  accessKey?: string;
 }
 
 /**
- * The bill of a table. Owns the responsible waiter, the pre-send drafts and
- * the closing lifecycle. `version` bumps on EVERY mutation (optimistic
+ * The bill of a table. Owns the assigned waiter, the pre-send drafts and the
+ * closing lifecycle. `version` bumps on EVERY mutation (optimistic
  * concurrency; sensitive mutations require expectedVersion).
  */
-export interface Comanda {
+export interface Check {
   id: string;
-  mesaId: number;
+  tableId: number;
   /** Denormalized for list rendering. */
-  mesaNum: number;
-  garcomId: string;
-  status: ComandaStatus;
+  tableNum: number;
+  waiterId: string;
+  status: CheckStatus;
   version: number;
-  itensDraft: ItemDraft[];
-  pagamento: Pagamento | null;
+  draftItems: DraftItem[];
+  payment: Payment | null;
   fiscal: Fiscal | null;
-  abertaEm: string; // ISO
-  fechadaEm: string | null;
+  openedAt: string; // ISO
+  closedAt: string | null;
 }
 
-/** A line of a dispatched pedido, advanced only by its station's KDS. */
-export interface ItemPedido {
+/** A line of a dispatched order, advanced only by its station's KDS. */
+export interface OrderItem {
   id: string;
-  produtoId: string;
-  nome: string;
-  precoUnit: number;
-  estacao: Estacao;
-  qtd: number;
-  status: ItemPedidoStatus;
-  recebidoEm?: string;
-  iniciadoEm?: string;
-  prontoEm?: string;
+  productId: string;
+  name: string;
+  unitPrice: number;
+  station: Station;
+  qty: number;
+  status: OrderItemStatus;
+  receivedAt?: string;
+  startedAt?: string;
+  readyAt?: string;
 }
 
 /** One dispatched batch. May contain items for both stations; KDS filters. */
-export interface Pedido {
+export interface Order {
   id: string;
-  comandaId: string;
+  checkId: string;
   /** Denormalized for KDS cards. */
-  mesaId: number;
-  mesaNum: number;
-  garcomId: string;
-  /** Sequential within the comanda ("Pedido #2"). */
+  tableId: number;
+  tableNum: number;
+  waiterId: string;
+  /** Sequential within the check ("Pedido #2" in the UI). */
   seq: number;
-  criadoEm: string; // ISO
-  itens: ItemPedido[];
+  createdAt: string; // ISO
+  items: OrderItem[];
 }
 
 /** Client session — one per browser tab (persisted in sessionStorage). */
-export type Sessao =
-  | { papel: "garcom"; garcomId: string }
-  | { papel: "gerente"; garcomId: string }
-  | { papel: "estacao"; estacao: Estacao };
+export type Session =
+  | { role: "waiter"; waiterId: string }
+  | { role: "manager"; waiterId: string }
+  | { role: "station"; station: Station };
 
 /** UI layout preferences (persisted). */
-export type MesasVariant = "detalhado" | "compacto";
-export type ComandaVariant = "dividido" | "foco";
+export type TablesVariant = "detailed" | "compact";
+export type CheckVariant = "split" | "focus";
 
 /** Semantic color used by status chips. */
 export type ChipKind = "green" | "amber" | "red" | "blue" | "neutral";

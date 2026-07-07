@@ -1,8 +1,8 @@
 export type {
-  EventoEnvelope,
-  EventoRealtime,
-  EventoTipo,
-  PayloadDe,
+  EventEnvelope,
+  PayloadOf,
   RealtimeClient,
+  RealtimeEvent,
+  RealtimeEventType,
 } from "./types";
-export { getRealtimeClient, criarEvento } from "./broadcast";
+export { getRealtimeClient, createEvent } from "./broadcast";

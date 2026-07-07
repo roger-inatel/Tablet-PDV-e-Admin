@@ -5,9 +5,9 @@ import { useRouter } from "next/navigation";
 import { Avatar } from "@/components/ui/Avatar";
 import { Icon } from "@/components/ui/Icon";
 import { useAppStore } from "@/store/useAppStore";
-import { GARCONS } from "@/data/garcons";
-import { ESTACOES } from "@/data/estacoes";
-import type { Estacao } from "@/types";
+import { WAITERS } from "@/data/waiters";
+import { STATIONS } from "@/data/stations";
+import type { Station } from "@/types";
 
 const KEYS: { label: string; alt?: boolean; action: "digit" | "clear" | "back" }[] = [
   { label: "1", action: "digit" },
@@ -26,23 +26,23 @@ const KEYS: { label: string; alt?: boolean; action: "digit" | "clear" | "back" }
 
 export default function LoginPage() {
   const router = useRouter();
-  const loginGarcom = useAppStore((s) => s.loginGarcom);
-  const entrarEstacao = useAppStore((s) => s.entrarEstacao);
-  const storeGarcons = useAppStore((s) => s.garcons);
-  const storeEstacoes = useAppStore((s) => s.estacoes);
+  const loginWaiter = useAppStore((s) => s.loginWaiter);
+  const enterStation = useAppStore((s) => s.enterStation);
+  const storeWaiters = useAppStore((s) => s.waiters);
+  const storeStations = useAppStore((s) => s.stations);
 
   // Reflect admin edits when loaded; fall back to seeds pre-hydration.
-  const equipe = storeGarcons.length ? storeGarcons : GARCONS;
-  const estacoes = storeEstacoes.length ? storeEstacoes : ESTACOES;
-  const garcons = equipe.filter((g) => g.papel === "garcom");
-  const gerentes = equipe.filter((g) => g.papel === "gerente");
+  const staff = storeWaiters.length ? storeWaiters : WAITERS;
+  const stations = storeStations.length ? storeStations : STATIONS;
+  const waiters = staff.filter((w) => w.role === "waiter");
+  const managers = staff.filter((w) => w.role === "manager");
 
   const [pickId, setPickId] = useState<string>("carlos");
   const [pin, setPin] = useState("");
-  const [entrando, setEntrando] = useState(false);
+  const [signingIn, setSigningIn] = useState(false);
 
-  const picked = equipe.find((g) => g.id === pickId);
-  const canEnter = pin.length >= 4 && !entrando;
+  const picked = staff.find((w) => w.id === pickId);
+  const canEnter = pin.length >= 4 && !signingIn;
 
   const press = (key: (typeof KEYS)[number]) => {
     if (key.action === "digit") {
@@ -56,24 +56,24 @@ export default function LoginPage() {
 
   const onEnter = async () => {
     if (!canEnter) return;
-    setEntrando(true);
-    const papel = await loginGarcom(pickId, pin);
-    setEntrando(false);
-    if (papel) {
-      router.push(papel === "gerente" ? "/admin" : "/garcom");
+    setSigningIn(true);
+    const role = await loginWaiter(pickId, pin);
+    setSigningIn(false);
+    if (role) {
+      router.push(role === "manager" ? "/admin" : "/waiter");
     } else {
       setPin("");
     }
   };
 
-  const onEstacao = (estacao: Estacao) => {
-    entrarEstacao(estacao);
-    router.push(`/kds/${estacao}`);
+  const onStation = (station: Station) => {
+    enterStation(station);
+    router.push(`/kds/${station}`);
   };
 
-  const cardCls = (sel: boolean) =>
+  const cardCls = (selected: boolean) =>
     `flex items-center gap-3 rounded-[13px] border-2 p-3.5 text-left ${
-      sel
+      selected
         ? "border-brand-600 bg-[#eff6ff] shadow-[0_8px_20px_-10px_rgba(37,99,235,.5)]"
         : "border-line bg-white"
     }`;
@@ -102,32 +102,32 @@ export default function LoginPage() {
         </p>
 
         <div className="grid max-w-2xl gap-5">
-          {/* Garçons */}
+          {/* Waiters */}
           <div>
             <div className="mb-2 text-[0.72rem] font-bold uppercase tracking-[0.1em] text-ink-muted">
               Garçons
             </div>
             <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
-              {garcons.map((g) => {
-                const sel = pickId === g.id;
-                const paused = g.status === "PAUSA";
+              {waiters.map((w) => {
+                const selected = pickId === w.id;
+                const onBreak = w.status === "ON_BREAK";
                 return (
                   <button
-                    key={g.id}
+                    key={w.id}
                     type="button"
                     onClick={() => {
-                      setPickId(g.id);
+                      setPickId(w.id);
                       setPin("");
                     }}
-                    className={cardCls(sel)}
+                    className={cardCls(selected)}
                   >
-                    <Avatar initials={g.initials} color={g.color} size={40} />
+                    <Avatar initials={w.initials} color={w.color} size={40} />
                     <span className="grid min-w-0 gap-px">
                       <strong className="text-[0.92rem] leading-tight text-navy">
-                        {g.name}
+                        {w.name}
                       </strong>
                       <span className="text-[0.76rem] text-ink-muted">
-                        {paused ? "Em pausa" : g.cargo}
+                        {onBreak ? "Em pausa" : w.roleLabel}
                       </span>
                     </span>
                   </button>
@@ -136,32 +136,32 @@ export default function LoginPage() {
             </div>
           </div>
 
-          {/* Gerência + KDS side by side */}
+          {/* Managers + KDS side by side */}
           <div className="grid gap-5 sm:grid-cols-2">
             <div>
               <div className="mb-2 text-[0.72rem] font-bold uppercase tracking-[0.1em] text-ink-muted">
                 Gerência
               </div>
               <div className="grid gap-2.5">
-                {gerentes.map((g) => {
-                  const sel = pickId === g.id;
+                {managers.map((w) => {
+                  const selected = pickId === w.id;
                   return (
                     <button
-                      key={g.id}
+                      key={w.id}
                       type="button"
                       onClick={() => {
-                        setPickId(g.id);
+                        setPickId(w.id);
                         setPin("");
                       }}
-                      className={cardCls(sel)}
+                      className={cardCls(selected)}
                     >
-                      <Avatar initials={g.initials} color={g.color} size={40} />
+                      <Avatar initials={w.initials} color={w.color} size={40} />
                       <span className="grid min-w-0 gap-px">
                         <strong className="text-[0.92rem] leading-tight text-navy">
-                          {g.name}
+                          {w.name}
                         </strong>
                         <span className="text-[0.76rem] text-ink-muted">
-                          {g.cargo} · Painel
+                          {w.roleLabel} · Painel
                         </span>
                       </span>
                     </button>
@@ -175,22 +175,22 @@ export default function LoginPage() {
                 Estações (KDS)
               </div>
               <div className="grid gap-2.5">
-                {estacoes.map((e) => (
+                {stations.map((st) => (
                   <button
-                    key={e.id}
+                    key={st.id}
                     type="button"
-                    onClick={() => onEstacao(e.id)}
+                    onClick={() => onStation(st.id)}
                     className="flex items-center gap-3 rounded-[13px] border-2 border-line bg-white p-3.5 text-left"
                   >
                     <span
                       className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-[12px] text-white"
-                      style={{ background: e.cor }}
+                      style={{ background: st.color }}
                     >
-                      <Icon name={e.icone} size={19} />
+                      <Icon name={st.icon} size={19} />
                     </span>
                     <span className="grid min-w-0 gap-px">
                       <strong className="text-[0.92rem] leading-tight text-navy">
-                        {e.nome}
+                        {st.name}
                       </strong>
                       <span className="text-[0.76rem] text-ink-muted">
                         Entrar direto →
@@ -245,7 +245,7 @@ export default function LoginPage() {
             canEnter ? "cursor-pointer bg-[#1f4e79]" : "cursor-not-allowed bg-[#cbd5e1]"
           }`}
         >
-          {entrando ? "Entrando…" : "Entrar"}
+          {signingIn ? "Entrando…" : "Entrar"}
         </button>
       </div>
     </div>

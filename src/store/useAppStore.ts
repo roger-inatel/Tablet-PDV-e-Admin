@@ -4,34 +4,34 @@ import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
 import type {
   Category,
-  Comanda,
-  ComandaVariant,
-  Estacao,
-  EstacaoConfig,
-  Garcom,
-  GarcomStatus,
-  ItemPedidoStatus,
-  Mesa,
-  MesasVariant,
-  MetodoPagamento,
-  Pedido,
-  Produto,
-  Sessao,
+  Check,
+  CheckVariant,
+  Order,
+  OrderItemStatus,
+  PaymentMethod,
+  Product,
+  Session,
+  Station,
+  StationConfig,
+  Table,
+  TablesVariant,
+  Waiter,
+  WaiterStatus,
 } from "@/types";
 import { repos, isConflictError } from "@/lib/api";
-import type { EventoRealtime } from "@/lib/realtime";
+import type { RealtimeEvent } from "@/lib/realtime";
 import { uid } from "@/lib/format";
 
-/** Payload for creating a new garcom from the admin drawer. */
-export interface NewGarcomInput {
+/** Payload for creating a new waiter from the admin drawer. */
+export interface NewWaiterInput {
   name: string;
   login: string;
-  status: GarcomStatus;
+  status: WaiterStatus;
   phone?: string;
   note?: string;
 }
 
-const GARCOM_PALETTE = [
+const WAITER_PALETTE = [
   "#2563eb",
   "#0d9488",
   "#b45309",
@@ -50,46 +50,46 @@ function initialsFrom(name: string): string {
 // ---- reconciliation helpers -------------------------------------------------
 
 /**
- * Version-guarded upsert: applies a comanda snapshot only when strictly newer.
+ * Version-guarded upsert: applies a check snapshot only when strictly newer.
  * This single rule makes event application idempotent and order-tolerant, and
  * silently drops the local echo of our own mutations (same version as the
  * repo response we already applied).
  */
-function upsertComanda(list: Comanda[], c: Comanda): Comanda[] {
+function upsertCheck(list: Check[], c: Check): Check[] {
   const cur = list.find((x) => x.id === c.id);
   if (!cur) return [...list, c];
   if (c.version <= cur.version) return list;
   return list.map((x) => (x.id === c.id ? c : x));
 }
 
-function upsertPedido(list: Pedido[], p: Pedido): Pedido[] {
-  return list.some((x) => x.id === p.id)
-    ? list.map((x) => (x.id === p.id ? p : x))
-    : [...list, p];
+function upsertOrder(list: Order[], o: Order): Order[] {
+  return list.some((x) => x.id === o.id)
+    ? list.map((x) => (x.id === o.id ? o : x))
+    : [...list, o];
 }
 
-function upsertMesa(list: Mesa[], m: Mesa): Mesa[] {
-  return list.map((x) => (x.id === m.id ? m : x));
+function upsertTable(list: Table[], t: Table): Table[] {
+  return list.map((x) => (x.id === t.id ? t : x));
 }
 
 interface AppState {
   // Reference data (loaded once from the repos)
-  garcons: Garcom[];
-  produtos: Produto[];
-  categorias: Category[];
-  estacoes: EstacaoConfig[];
+  waiters: Waiter[];
+  products: Product[];
+  categories: Category[];
+  stations: StationConfig[];
 
   // Operational state (event-reconciled cache of the mock "server")
-  mesas: Mesa[];
-  comandas: Comanda[];
-  pedidos: Pedido[];
+  tables: Table[];
+  checks: Check[];
+  orders: Order[];
 
   // Session (persisted per-tab in sessionStorage)
-  sessao: Sessao | null;
+  session: Session | null;
 
   // UI prefs (persisted with the session)
-  mesasVariant: MesasVariant;
-  comandaVariant: ComandaVariant;
+  tablesVariant: TablesVariant;
+  checkVariant: CheckVariant;
 
   // Transient
   toast: string | null;
@@ -102,44 +102,44 @@ interface AppState {
   setHydrated: () => void;
 
   // ---- auth/session ----
-  loginGarcom: (garcomId: string, pin: string) => Promise<Garcom["papel"] | null>;
-  entrarEstacao: (estacao: Estacao) => void;
+  loginWaiter: (waiterId: string, pin: string) => Promise<Waiter["role"] | null>;
+  enterStation: (station: Station) => void;
   logout: () => void;
 
-  // ---- comanda (garcom/gerente) ----
-  abrirComanda: (mesaId: number) => Promise<Comanda | null>;
-  addItemDraft: (comandaId: string, produtoId: string) => Promise<void>;
-  incDraft: (comandaId: string, key: string) => Promise<void>;
-  decDraft: (comandaId: string, key: string) => Promise<void>;
-  enviarPedido: (comandaId: string) => Promise<boolean>;
-  iniciarFechamento: (comandaId: string) => Promise<boolean>;
-  cancelarFechamento: (comandaId: string) => Promise<void>;
-  registrarPagamento: (
-    comandaId: string,
-    metodo: MetodoPagamento,
-    simularErroFiscal: boolean,
+  // ---- check (waiter/manager) ----
+  openCheck: (tableId: number) => Promise<Check | null>;
+  addDraftItem: (checkId: string, productId: string) => Promise<void>;
+  incDraftItem: (checkId: string, key: string) => Promise<void>;
+  decDraftItem: (checkId: string, key: string) => Promise<void>;
+  sendOrder: (checkId: string) => Promise<boolean>;
+  startCheckout: (checkId: string) => Promise<boolean>;
+  cancelCheckout: (checkId: string) => Promise<void>;
+  registerPayment: (
+    checkId: string,
+    method: PaymentMethod,
+    simulateFiscalError: boolean,
   ) => Promise<boolean>;
-  retryFiscal: (comandaId: string) => Promise<void>;
-  transferirComanda: (comandaId: string, garcomId: string) => Promise<void>;
+  retryFiscal: (checkId: string) => Promise<void>;
+  transferCheck: (checkId: string, waiterId: string) => Promise<void>;
 
-  // ---- KDS (estacao) ----
-  receberPedido: (pedidoId: string, estacao: Estacao) => Promise<void>;
-  avancarItemPedido: (
-    pedidoId: string,
+  // ---- KDS (station) ----
+  receiveOrder: (orderId: string, station: Station) => Promise<void>;
+  advanceOrderItem: (
+    orderId: string,
     itemId: string,
-    para: ItemPedidoStatus,
+    to: OrderItemStatus,
   ) => Promise<void>;
 
-  // ---- garcons (admin) ----
-  salvarGarcom: (id: string, patch: Partial<Garcom>) => Promise<void>;
-  criarGarcom: (data: NewGarcomInput) => Promise<void>;
+  // ---- waiters (admin) ----
+  saveWaiter: (id: string, patch: Partial<Waiter>) => Promise<void>;
+  createWaiter: (data: NewWaiterInput) => Promise<void>;
 
   // ---- realtime ----
-  applyEvento: (evt: EventoRealtime) => void;
+  applyEvent: (event: RealtimeEvent) => void;
 
   // ---- ui ----
-  setMesasVariant: (v: MesasVariant) => void;
-  setComandaVariant: (v: ComandaVariant) => void;
+  setTablesVariant: (v: TablesVariant) => void;
+  setCheckVariant: (v: CheckVariant) => void;
   pushToast: (msg: string) => void;
   clearToast: () => void;
 }
@@ -149,15 +149,15 @@ let toastTimer: ReturnType<typeof setTimeout> | undefined;
 export const useAppStore = create<AppState>()(
   persist(
     (set, get) => {
-      /** Shared 409 handling: refetch the comanda, surface a toast, no silent retry. */
+      /** Shared 409 handling: refetch the check, surface a toast, no silent retry. */
       const handleMutationError = async (
         e: unknown,
-        comandaId?: string,
+        checkId?: string,
       ): Promise<false> => {
-        if (isConflictError(e) && comandaId) {
-          const fresh = await repos.comandas.get(comandaId);
+        if (isConflictError(e) && checkId) {
+          const fresh = await repos.checks.get(checkId);
           if (fresh) {
-            set((s) => ({ comandas: upsertComanda(s.comandas, fresh) }));
+            set((s) => ({ checks: upsertCheck(s.checks, fresh) }));
           }
           get().pushToast("Comanda atualizada por outro usuário");
         } else {
@@ -167,288 +167,288 @@ export const useAppStore = create<AppState>()(
       };
 
       return {
-        garcons: [],
-        produtos: [],
-        categorias: [],
-        estacoes: [],
-        mesas: [],
-        comandas: [],
-        pedidos: [],
-        sessao: null,
-        mesasVariant: "detalhado",
-        comandaVariant: "dividido",
+        waiters: [],
+        products: [],
+        categories: [],
+        stations: [],
+        tables: [],
+        checks: [],
+        orders: [],
+        session: null,
+        tablesVariant: "detailed",
+        checkVariant: "split",
         toast: null,
         loaded: false,
         hydrated: false,
 
         init: async () => {
           if (get().loaded) return;
-          const [garcons, produtos, categorias, estacoes, mesas, comandas, pedidos] =
+          const [waiters, products, categories, stations, tables, checks, orders] =
             await Promise.all([
-              repos.garcons.list(),
-              repos.produtos.list(),
-              repos.produtos.categories(),
-              repos.estacoes.list(),
-              repos.mesas.list(),
-              repos.comandas.list(),
-              repos.pedidos.list(),
+              repos.waiters.list(),
+              repos.products.list(),
+              repos.products.categories(),
+              repos.stations.list(),
+              repos.tables.list(),
+              repos.checks.list(),
+              repos.orders.list(),
             ]);
           set({
-            garcons,
-            produtos,
-            categorias,
-            estacoes,
-            mesas,
-            comandas,
-            pedidos,
+            waiters,
+            products,
+            categories,
+            stations,
+            tables,
+            checks,
+            orders,
             loaded: true,
           });
         },
 
         refresh: async () => {
-          const [garcons, mesas, comandas, pedidos] = await Promise.all([
-            repos.garcons.list(),
-            repos.mesas.list(),
-            repos.comandas.list(),
-            repos.pedidos.list(),
+          const [waiters, tables, checks, orders] = await Promise.all([
+            repos.waiters.list(),
+            repos.tables.list(),
+            repos.checks.list(),
+            repos.orders.list(),
           ]);
-          set({ garcons, mesas, comandas, pedidos });
+          set({ waiters, tables, checks, orders });
         },
 
         setHydrated: () => set({ hydrated: true }),
 
-        loginGarcom: async (garcomId, pin) => {
-          const g = await repos.garcons.authenticate(garcomId, pin);
-          if (!g) {
+        loginWaiter: async (waiterId, pin) => {
+          const w = await repos.waiters.authenticate(waiterId, pin);
+          if (!w) {
             get().pushToast("PIN incorreto");
             return null;
           }
-          set({ sessao: { papel: g.papel, garcomId: g.id } });
+          set({ session: { role: w.role, waiterId: w.id } });
           get().pushToast(
-            g.papel === "gerente" ? "Bem-vinda ao painel" : "Bem-vindo ao PDV",
+            w.role === "manager" ? "Bem-vinda ao painel" : "Bem-vindo ao PDV",
           );
-          return g.papel;
+          return w.role;
         },
 
-        entrarEstacao: (estacao) => {
-          set({ sessao: { papel: "estacao", estacao } });
+        enterStation: (station) => {
+          set({ session: { role: "station", station } });
         },
 
-        logout: () => set({ sessao: null }),
+        logout: () => set({ session: null }),
 
-        abrirComanda: async (mesaId) => {
-          const { sessao } = get();
-          if (sessao?.papel !== "garcom") return null;
+        openCheck: async (tableId) => {
+          const { session } = get();
+          if (session?.role !== "waiter") return null;
           try {
-            const comanda = await repos.comandas.abrir(mesaId, sessao.garcomId);
+            const check = await repos.checks.open(tableId, session.waiterId);
             set((s) => ({
-              comandas: upsertComanda(s.comandas, comanda),
-              mesas: s.mesas.map((m) =>
-                m.id === mesaId ? { ...m, comandaId: comanda.id } : m,
+              checks: upsertCheck(s.checks, check),
+              tables: s.tables.map((t) =>
+                t.id === tableId ? { ...t, checkId: check.id } : t,
               ),
             }));
-            return comanda;
+            return check;
           } catch (e) {
             await handleMutationError(e);
             return null;
           }
         },
 
-        addItemDraft: async (comandaId, produtoId) => {
+        addDraftItem: async (checkId, productId) => {
           try {
-            const comanda = await repos.comandas.addItemDraft(comandaId, produtoId);
-            set((s) => ({ comandas: upsertComanda(s.comandas, comanda) }));
-            const p = get().produtos.find((x) => x.id === produtoId);
+            const check = await repos.checks.addDraftItem(checkId, productId);
+            set((s) => ({ checks: upsertCheck(s.checks, check) }));
+            const p = get().products.find((x) => x.id === productId);
             if (p) get().pushToast(`${p.name} adicionado`);
           } catch (e) {
-            await handleMutationError(e, comandaId);
+            await handleMutationError(e, checkId);
           }
         },
 
-        incDraft: async (comandaId, key) => {
+        incDraftItem: async (checkId, key) => {
           try {
-            const comanda = await repos.comandas.setQtdDraft(comandaId, key, 1);
-            set((s) => ({ comandas: upsertComanda(s.comandas, comanda) }));
+            const check = await repos.checks.setDraftQty(checkId, key, 1);
+            set((s) => ({ checks: upsertCheck(s.checks, check) }));
           } catch (e) {
-            await handleMutationError(e, comandaId);
+            await handleMutationError(e, checkId);
           }
         },
 
-        decDraft: async (comandaId, key) => {
+        decDraftItem: async (checkId, key) => {
           try {
-            const comanda = await repos.comandas.setQtdDraft(comandaId, key, -1);
-            set((s) => ({ comandas: upsertComanda(s.comandas, comanda) }));
+            const check = await repos.checks.setDraftQty(checkId, key, -1);
+            set((s) => ({ checks: upsertCheck(s.checks, check) }));
           } catch (e) {
-            await handleMutationError(e, comandaId);
+            await handleMutationError(e, checkId);
           }
         },
 
-        enviarPedido: async (comandaId) => {
-          const atual = get().comandas.find((c) => c.id === comandaId);
-          if (!atual) return false;
+        sendOrder: async (checkId) => {
+          const current = get().checks.find((c) => c.id === checkId);
+          if (!current) return false;
           try {
-            const { comanda, pedido } = await repos.comandas.enviarPedido(
-              comandaId,
-              atual.version,
+            const { check, order } = await repos.checks.sendOrder(
+              checkId,
+              current.version,
             );
             set((s) => ({
-              comandas: upsertComanda(s.comandas, comanda),
-              pedidos: upsertPedido(s.pedidos, pedido),
+              checks: upsertCheck(s.checks, check),
+              orders: upsertOrder(s.orders, order),
             }));
-            get().pushToast(`Pedido #${pedido.seq} enviado`);
+            get().pushToast(`Pedido #${order.seq} enviado`);
             return true;
           } catch (e) {
-            return handleMutationError(e, comandaId);
+            return handleMutationError(e, checkId);
           }
         },
 
-        iniciarFechamento: async (comandaId) => {
-          const atual = get().comandas.find((c) => c.id === comandaId);
-          if (!atual) return false;
+        startCheckout: async (checkId) => {
+          const current = get().checks.find((c) => c.id === checkId);
+          if (!current) return false;
           try {
-            const comanda = await repos.comandas.iniciarFechamento(
-              comandaId,
-              atual.version,
+            const check = await repos.checks.startCheckout(
+              checkId,
+              current.version,
             );
-            set((s) => ({ comandas: upsertComanda(s.comandas, comanda) }));
+            set((s) => ({ checks: upsertCheck(s.checks, check) }));
             return true;
           } catch (e) {
-            return handleMutationError(e, comandaId);
+            return handleMutationError(e, checkId);
           }
         },
 
-        cancelarFechamento: async (comandaId) => {
+        cancelCheckout: async (checkId) => {
           try {
-            const comanda = await repos.comandas.cancelarFechamento(comandaId);
-            set((s) => ({ comandas: upsertComanda(s.comandas, comanda) }));
+            const check = await repos.checks.cancelCheckout(checkId);
+            set((s) => ({ checks: upsertCheck(s.checks, check) }));
             get().pushToast("Fechamento cancelado");
           } catch (e) {
-            await handleMutationError(e, comandaId);
+            await handleMutationError(e, checkId);
           }
         },
 
-        registrarPagamento: async (comandaId, metodo, simularErroFiscal) => {
-          const atual = get().comandas.find((c) => c.id === comandaId);
-          if (!atual) return false;
+        registerPayment: async (checkId, method, simulateFiscalError) => {
+          const current = get().checks.find((c) => c.id === checkId);
+          if (!current) return false;
           try {
-            const comanda = await repos.comandas.registrarPagamento(
-              comandaId,
-              metodo,
-              atual.version,
-              { simularErroFiscal },
+            const check = await repos.checks.registerPayment(
+              checkId,
+              method,
+              current.version,
+              { simulateFiscalError },
             );
-            set((s) => ({ comandas: upsertComanda(s.comandas, comanda) }));
+            set((s) => ({ checks: upsertCheck(s.checks, check) }));
             return true;
           } catch (e) {
-            return handleMutationError(e, comandaId);
+            return handleMutationError(e, checkId);
           }
         },
 
-        retryFiscal: async (comandaId) => {
+        retryFiscal: async (checkId) => {
           try {
-            const comanda = await repos.comandas.retryFiscal(comandaId);
-            set((s) => ({ comandas: upsertComanda(s.comandas, comanda) }));
+            const check = await repos.checks.retryFiscal(checkId);
+            set((s) => ({ checks: upsertCheck(s.checks, check) }));
             get().pushToast("Reemitindo documento fiscal…");
           } catch (e) {
-            await handleMutationError(e, comandaId);
+            await handleMutationError(e, checkId);
           }
         },
 
-        transferirComanda: async (comandaId, garcomId) => {
+        transferCheck: async (checkId, waiterId) => {
           try {
-            const comanda = await repos.comandas.transferir(comandaId, garcomId);
-            set((s) => ({ comandas: upsertComanda(s.comandas, comanda) }));
+            const check = await repos.checks.transfer(checkId, waiterId);
+            set((s) => ({ checks: upsertCheck(s.checks, check) }));
             get().pushToast("Responsável atualizado");
           } catch (e) {
-            await handleMutationError(e, comandaId);
+            await handleMutationError(e, checkId);
           }
         },
 
-        receberPedido: async (pedidoId, estacao) => {
+        receiveOrder: async (orderId, station) => {
           try {
-            const pedido = await repos.pedidos.receber(pedidoId, estacao);
-            set((s) => ({ pedidos: upsertPedido(s.pedidos, pedido) }));
+            const order = await repos.orders.receive(orderId, station);
+            set((s) => ({ orders: upsertOrder(s.orders, order) }));
           } catch (e) {
             await handleMutationError(e);
           }
         },
 
-        avancarItemPedido: async (pedidoId, itemId, para) => {
+        advanceOrderItem: async (orderId, itemId, to) => {
           try {
-            const pedido = await repos.pedidos.avancarItem(pedidoId, itemId, para);
-            set((s) => ({ pedidos: upsertPedido(s.pedidos, pedido) }));
+            const order = await repos.orders.advanceItem(orderId, itemId, to);
+            set((s) => ({ orders: upsertOrder(s.orders, order) }));
           } catch (e) {
             await handleMutationError(e);
           }
         },
 
-        salvarGarcom: async (id, patch) => {
-          const atual = get().garcons.find((g) => g.id === id);
-          if (!atual) return;
-          const salvo = await repos.garcons.save({ ...atual, ...patch });
+        saveWaiter: async (id, patch) => {
+          const current = get().waiters.find((w) => w.id === id);
+          if (!current) return;
+          const saved = await repos.waiters.save({ ...current, ...patch });
           set((s) => ({
-            garcons: s.garcons.map((g) => (g.id === id ? salvo : g)),
+            waiters: s.waiters.map((w) => (w.id === id ? saved : w)),
           }));
           get().pushToast("Garçom atualizado");
         },
 
-        criarGarcom: async (data) => {
+        createWaiter: async (data) => {
           const id =
-            "g" +
+            "w" +
             (data.name.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-") || uid());
-          const garcom: Garcom = {
+          const waiter: Waiter = {
             id,
             name: data.name.trim(),
             initials: initialsFrom(data.name),
-            color: GARCOM_PALETTE[get().garcons.length % GARCOM_PALETTE.length],
+            color: WAITER_PALETTE[get().waiters.length % WAITER_PALETTE.length],
             login: data.login.trim() || "@" + id,
             pin: "0000",
-            papel: "garcom",
-            cargo: "Garçom",
+            role: "waiter",
+            roleLabel: "Garçom",
             status: data.status,
             phone: data.phone?.trim() || undefined,
             note: data.note?.trim() || undefined,
           };
-          const salvo = await repos.garcons.save(garcom);
-          set((s) => ({ garcons: [...s.garcons, salvo] }));
+          const saved = await repos.waiters.save(waiter);
+          set((s) => ({ waiters: [...s.waiters, saved] }));
           get().pushToast("Garçom cadastrado");
         },
 
-        applyEvento: (evt) => {
-          switch (evt.tipo) {
-            case "comanda.aberta":
-            case "comanda.fechada":
+        applyEvent: (event) => {
+          switch (event.type) {
+            case "check.opened":
+            case "check.closed":
               set((s) => ({
-                comandas: upsertComanda(s.comandas, evt.payload.comanda),
-                mesas: upsertMesa(s.mesas, evt.payload.mesa),
+                checks: upsertCheck(s.checks, event.payload.check),
+                tables: upsertTable(s.tables, event.payload.table),
               }));
               break;
-            case "comanda.atualizada":
-            case "comanda.fechamento_iniciado":
-            case "pagamento.criado":
-            case "fiscal.erro":
+            case "check.updated":
+            case "check.checkout_started":
+            case "payment.created":
+            case "fiscal.error":
               set((s) => ({
-                comandas: upsertComanda(s.comandas, evt.payload.comanda),
+                checks: upsertCheck(s.checks, event.payload.check),
               }));
               break;
-            case "pedido.enviado":
+            case "order.sent":
               set((s) => ({
-                pedidos: upsertPedido(s.pedidos, evt.payload.pedido),
-                comandas: upsertComanda(s.comandas, evt.payload.comanda),
+                orders: upsertOrder(s.orders, event.payload.order),
+                checks: upsertCheck(s.checks, event.payload.check),
               }));
               break;
-            case "item.recebido":
-            case "item.em_preparo":
-            case "item.pronto":
+            case "order_item.received":
+            case "order_item.preparing":
+            case "order_item.ready":
               set((s) => ({
-                pedidos: upsertPedido(s.pedidos, evt.payload.pedido),
+                orders: upsertOrder(s.orders, event.payload.order),
               }));
               break;
           }
         },
 
-        setMesasVariant: (v) => set({ mesasVariant: v }),
-        setComandaVariant: (v) => set({ comandaVariant: v }),
+        setTablesVariant: (v) => set({ tablesVariant: v }),
+        setCheckVariant: (v) => set({ checkVariant: v }),
 
         pushToast: (msg) => {
           set({ toast: msg });
@@ -459,15 +459,15 @@ export const useAppStore = create<AppState>()(
       };
     },
     {
-      name: "mesaplus.session.v2",
+      name: "mesaplus.session.v3",
       // sessionStorage ON PURPOSE: each browser tab holds its own profile,
-      // which is what makes the two-tab demo (garçom + KDS) possible and
+      // which is what makes the two-tab demo (waiter + KDS) possible and
       // mirrors per-device sessions in production.
       storage: createJSONStorage(() => sessionStorage),
       partialize: (s) => ({
-        sessao: s.sessao,
-        mesasVariant: s.mesasVariant,
-        comandaVariant: s.comandaVariant,
+        session: s.session,
+        tablesVariant: s.tablesVariant,
+        checkVariant: s.checkVariant,
       }),
       skipHydration: true,
     },

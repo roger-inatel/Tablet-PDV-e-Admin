@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useAppStore } from "@/store/useAppStore";
+import type { Station } from "@/types";
 
 /**
  * DEV-ONLY quick profile switcher (one tap = set session + navigate).
@@ -9,21 +10,21 @@ import { useAppStore } from "@/store/useAppStore";
  */
 export function DevSwitcher() {
   const router = useRouter();
-  const loginDireto = useAppStore((s) => s.entrarEstacao);
-  const garcons = useAppStore((s) => s.garcons);
+  const enterStation = useAppStore((s) => s.enterStation);
+  const waiters = useAppStore((s) => s.waiters);
 
   if (process.env.NODE_ENV !== "development") return null;
 
-  const irGarcom = (garcomId: string) => {
-    const g = garcons.find((x) => x.id === garcomId);
-    if (!g) return;
-    useAppStore.setState({ sessao: { papel: g.papel, garcomId: g.id } });
-    router.push(g.papel === "gerente" ? "/admin" : "/garcom");
+  const goWaiter = (waiterId: string) => {
+    const w = waiters.find((x) => x.id === waiterId);
+    if (!w) return;
+    useAppStore.setState({ session: { role: w.role, waiterId: w.id } });
+    router.push(w.role === "manager" ? "/admin" : "/waiter");
   };
 
-  const irEstacao = (estacao: "cozinha" | "bar") => {
-    loginDireto(estacao);
-    router.push(`/kds/${estacao}`);
+  const goStation = (station: Station) => {
+    enterStation(station);
+    router.push(`/kds/${station}`);
   };
 
   const btn =
@@ -34,16 +35,16 @@ export function DevSwitcher() {
       <span className="px-1.5 text-[0.62rem] font-black uppercase tracking-wider text-slate-500">
         dev
       </span>
-      <button type="button" className={btn} onClick={() => irGarcom("carlos")}>
+      <button type="button" className={btn} onClick={() => goWaiter("carlos")}>
         Garçom
       </button>
-      <button type="button" className={btn} onClick={() => irGarcom("gerente")}>
+      <button type="button" className={btn} onClick={() => goWaiter("renata")}>
         Admin
       </button>
-      <button type="button" className={btn} onClick={() => irEstacao("cozinha")}>
+      <button type="button" className={btn} onClick={() => goStation("kitchen")}>
         Cozinha
       </button>
-      <button type="button" className={btn} onClick={() => irEstacao("bar")}>
+      <button type="button" className={btn} onClick={() => goStation("bar")}>
         Bar
       </button>
     </div>

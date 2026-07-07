@@ -1,150 +1,148 @@
 import type {
+  Check,
   ChipKind,
-  Comanda,
-  Estacao,
-  Garcom,
-  GarcomStatus,
-  ItemPedidoStatus,
-  Mesa,
-  Pedido,
-  Sessao,
+  Order,
+  OrderItemStatus,
+  Session,
+  Station,
+  Table,
+  Waiter,
+  WaiterStatus,
 } from "@/types";
-import { totalComanda } from "@/lib/domain/pedido";
-import { estagioDaEstacao, pertenceAEstacao } from "@/lib/domain/pedido";
+import { checkTotal } from "@/lib/domain/order";
+import { belongsToStation, stationStage } from "@/lib/domain/order";
 
-// Pure derivations over the v2 store state (call inside useMemo).
+// Pure derivations over the store state (call inside useMemo).
 
-export function garconsById(garcons: Garcom[]): Record<string, Garcom> {
-  return garcons.reduce(
-    (acc, g) => {
-      acc[g.id] = g;
+export function waitersById(waiters: Waiter[]): Record<string, Waiter> {
+  return waiters.reduce(
+    (acc, w) => {
+      acc[w.id] = w;
       return acc;
     },
-    {} as Record<string, Garcom>,
+    {} as Record<string, Waiter>,
   );
 }
 
-export function comandaById(
-  comandas: Comanda[],
+export function checkById(
+  checks: Check[],
   id: string | null,
-): Comanda | undefined {
-  return id ? comandas.find((c) => c.id === id) : undefined;
+): Check | undefined {
+  return id ? checks.find((c) => c.id === id) : undefined;
 }
 
-export function pedidosDaComanda(pedidos: Pedido[], comandaId: string): Pedido[] {
-  return pedidos
-    .filter((p) => p.comandaId === comandaId)
+export function ordersOfCheck(orders: Order[], checkId: string): Order[] {
+  return orders
+    .filter((o) => o.checkId === checkId)
     .sort((a, b) => a.seq - b.seq);
 }
 
-// ---- garcom surface ---------------------------------------------------------
+// ---- waiter surface ---------------------------------------------------------
 
-export type MesaViewKind = "livre" | "minha" | "outro";
+export type TableViewKind = "free" | "mine" | "other";
 
-export interface MesaView {
-  mesa: Mesa;
-  kind: MesaViewKind;
-  comanda?: Comanda;
-  garcom?: Garcom;
+export interface TableView {
+  table: Table;
+  kind: TableViewKind;
+  check?: Check;
+  waiter?: Waiter;
   total: number;
   itemCount: number;
-  emFechamento: boolean;
+  inCheckout: boolean;
 }
 
-export function mesaViews(
-  mesas: Mesa[],
-  comandas: Comanda[],
-  pedidos: Pedido[],
-  garcons: Garcom[],
-  sessao: Sessao | null,
-): MesaView[] {
-  const gById = garconsById(garcons);
-  const meuId = sessao && sessao.papel !== "estacao" ? sessao.garcomId : null;
-  return mesas.map((mesa) => {
-    const comanda = comandaById(comandas, mesa.comandaId);
-    if (!comanda) {
-      return { mesa, kind: "livre", total: 0, itemCount: 0, emFechamento: false };
+export function tableViews(
+  tables: Table[],
+  checks: Check[],
+  orders: Order[],
+  waiters: Waiter[],
+  session: Session | null,
+): TableView[] {
+  const byId = waitersById(waiters);
+  const myId =
+    session && session.role !== "station" ? session.waiterId : null;
+  return tables.map((table) => {
+    const check = checkById(checks, table.checkId);
+    if (!check) {
+      return { table, kind: "free", total: 0, itemCount: 0, inCheckout: false };
     }
-    const meus = pedidosDaComanda(pedidos, comanda.id);
+    const checkOrders = ordersOfCheck(orders, check.id);
     const itemCount =
-      comanda.itensDraft.reduce((s, d) => s + d.qtd, 0) +
-      meus.reduce((s, p) => s + p.itens.reduce((a, i) => a + i.qtd, 0), 0);
+      check.draftItems.reduce((s, d) => s + d.qty, 0) +
+      checkOrders.reduce((s, o) => s + o.items.reduce((a, i) => a + i.qty, 0), 0);
     return {
-      mesa,
-      kind: comanda.garcomId === meuId ? "minha" : "outro",
-      comanda,
-      garcom: gById[comanda.garcomId],
-      total: totalComanda(comanda, meus),
+      table,
+      kind: check.waiterId === myId ? "mine" : "other",
+      check,
+      waiter: byId[check.waiterId],
+      total: checkTotal(check, checkOrders),
       itemCount,
-      emFechamento: comanda.status === "EM_FECHAMENTO",
+      inCheckout: check.status === "IN_CHECKOUT",
     };
   });
 }
 
-export function minhasMesasCount(views: MesaView[]): number {
-  return views.filter((v) => v.kind === "minha").length;
+export function myTablesCount(views: TableView[]): number {
+  return views.filter((v) => v.kind === "mine").length;
 }
 
 // ---- KDS --------------------------------------------------------------------
 
 export interface KdsCard {
-  pedido: Pedido;
+  order: Order;
   /** Least-advanced status among the station's items (board column). */
-  estagio: ItemPedidoStatus;
+  stage: OrderItemStatus;
 }
 
-/** Station queue: pedidos with items for this station, not fully PRONTO. */
-export function kdsQueue(pedidos: Pedido[], estacao: Estacao): KdsCard[] {
-  return pedidos
-    .filter((p) => pertenceAEstacao(p, estacao))
-    .map((p) => ({ pedido: p, estagio: estagioDaEstacao(p, estacao)! }))
+/** Station queue: orders with items for this station. */
+export function kdsQueue(orders: Order[], station: Station): KdsCard[] {
+  return orders
+    .filter((o) => belongsToStation(o, station))
+    .map((o) => ({ order: o, stage: stationStage(o, station)! }))
     .sort(
       (a, b) =>
-        new Date(a.pedido.criadoEm).getTime() -
-        new Date(b.pedido.criadoEm).getTime(),
+        new Date(a.order.createdAt).getTime() -
+        new Date(b.order.createdAt).getTime(),
     );
 }
 
 // ---- admin ------------------------------------------------------------------
 
-export function comandasAtivas(comandas: Comanda[]): Comanda[] {
-  return comandas.filter((c) => c.status !== "FECHADA");
+export function activeChecks(checks: Check[]): Check[] {
+  return checks.filter((c) => c.status !== "CLOSED");
 }
 
-export function comandasEmFechamento(comandas: Comanda[]): Comanda[] {
-  return comandas.filter((c) => c.status === "EM_FECHAMENTO");
+export function checksInCheckout(checks: Check[]): Check[] {
+  return checks.filter((c) => c.status === "IN_CHECKOUT");
 }
 
-export function comandasComErroFiscal(comandas: Comanda[]): Comanda[] {
-  return comandas.filter((c) => c.fiscal?.status === "ERRO");
+export function checksWithFiscalError(checks: Check[]): Check[] {
+  return checks.filter((c) => c.fiscal?.status === "ERROR");
 }
 
-export function totalEmAberto(comandas: Comanda[], pedidos: Pedido[]): number {
-  return comandasAtivas(comandas).reduce(
-    (sum, c) => sum + totalComanda(c, pedidosDaComanda(pedidos, c.id)),
+export function outstandingTotal(checks: Check[], orders: Order[]): number {
+  return activeChecks(checks).reduce(
+    (sum, c) => sum + checkTotal(c, ordersOfCheck(orders, c.id)),
     0,
   );
 }
 
-export function garconsAtivos(garcons: Garcom[]): Garcom[] {
-  return garcons.filter((g) => g.papel === "garcom" && g.status === "ATIVO");
+export function activeWaiters(waiters: Waiter[]): Waiter[] {
+  return waiters.filter((w) => w.role === "waiter" && w.status === "ACTIVE");
 }
 
-export function mesasDoGarcom(
-  comandas: Comanda[],
-  garcomId: string,
-): number {
-  return comandasAtivas(comandas).filter((c) => c.garcomId === garcomId).length;
+export function waiterTableCount(checks: Check[], waiterId: string): number {
+  return activeChecks(checks).filter((c) => c.waiterId === waiterId).length;
 }
 
-export function garcomStatusMeta(status: GarcomStatus): {
+export function waiterStatusMeta(status: WaiterStatus): {
   kind: ChipKind;
   label: string;
 } {
   switch (status) {
-    case "ATIVO":
+    case "ACTIVE":
       return { kind: "green", label: "Ativo" };
-    case "PAUSA":
+    case "ON_BREAK":
       return { kind: "amber", label: "Em pausa" };
     default:
       return { kind: "neutral", label: "Inativo" };

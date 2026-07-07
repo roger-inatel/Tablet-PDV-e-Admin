@@ -1,52 +1,52 @@
 import type {
-  Comanda,
-  Estacao,
-  Mesa,
-  Pagamento,
-  Pedido,
+  Check,
+  Order,
+  Payment,
+  Station,
+  Table,
 } from "@/types";
 
-// Typed realtime event contract. This union IS the contract the future
-// NestJS backend emits over WebSocket/SSE — see docs/CONTRACTS.md.
+// Typed realtime event contract. This union IS the contract the NestJS
+// backend emits over WebSocket/SSE — see docs/CONTRACTS.md.
 //
-// Payloads carry FULL aggregate snapshots (comanda includes `version`), so
+// Payloads carry FULL aggregate snapshots (check includes `version`), so
 // reconciliation is a version-guarded upsert: idempotent and order-tolerant.
 
-export interface EventoEnvelope<T extends string, P> {
+export interface EventEnvelope<T extends string, P> {
   /** Unique event id. */
   id: string;
-  tipo: T;
+  type: T;
   /** ISO timestamp of emission. */
   ts: string;
   /** Client/node that published (debugging; NOT used to skip echo). */
-  origem: string;
+  origin: string;
   payload: P;
 }
 
-export type EventoRealtime =
-  | EventoEnvelope<"comanda.aberta", { comanda: Comanda; mesa: Mesa }>
-  | EventoEnvelope<"comanda.atualizada", { comanda: Comanda }>
-  | EventoEnvelope<"pedido.enviado", { pedido: Pedido; comanda: Comanda }>
-  | EventoEnvelope<"item.recebido", { pedido: Pedido; itemId: string; estacao: Estacao }>
-  | EventoEnvelope<"item.em_preparo", { pedido: Pedido; itemId: string; estacao: Estacao }>
-  | EventoEnvelope<"item.pronto", { pedido: Pedido; itemId: string; estacao: Estacao }>
-  | EventoEnvelope<"comanda.fechamento_iniciado", { comanda: Comanda }>
-  | EventoEnvelope<"pagamento.criado", { comanda: Comanda; pagamento: Pagamento }>
-  | EventoEnvelope<"fiscal.erro", { comanda: Comanda; erro: string }>
-  | EventoEnvelope<"comanda.fechada", { comanda: Comanda; mesa: Mesa }>;
+export type RealtimeEvent =
+  | EventEnvelope<"check.opened", { check: Check; table: Table }>
+  | EventEnvelope<"check.updated", { check: Check }>
+  | EventEnvelope<"order.sent", { order: Order; check: Check }>
+  | EventEnvelope<"order_item.received", { order: Order; itemId: string; station: Station }>
+  | EventEnvelope<"order_item.preparing", { order: Order; itemId: string; station: Station }>
+  | EventEnvelope<"order_item.ready", { order: Order; itemId: string; station: Station }>
+  | EventEnvelope<"check.checkout_started", { check: Check }>
+  | EventEnvelope<"payment.created", { check: Check; payment: Payment }>
+  | EventEnvelope<"fiscal.error", { check: Check; error: string }>
+  | EventEnvelope<"check.closed", { check: Check; table: Table }>;
 
-export type EventoTipo = EventoRealtime["tipo"];
+export type RealtimeEventType = RealtimeEvent["type"];
 
-/** Payload type for a given event tipo. */
-export type PayloadDe<T extends EventoTipo> = Extract<
-  EventoRealtime,
-  { tipo: T }
+/** Payload type for a given event type. */
+export type PayloadOf<T extends RealtimeEventType> = Extract<
+  RealtimeEvent,
+  { type: T }
 >["payload"];
 
 export interface RealtimeClient {
   /** Stable id of this tab/connection (debugging only). */
   readonly clientId: string;
-  publish(evento: EventoRealtime): void;
+  publish(event: RealtimeEvent): void;
   /** Returns an unsubscribe function. */
-  subscribe(handler: (evento: EventoRealtime) => void): () => void;
+  subscribe(handler: (event: RealtimeEvent) => void): () => void;
 }
