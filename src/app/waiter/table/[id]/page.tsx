@@ -53,7 +53,7 @@ export default function CheckPage({
   const sendOrderAction = useAppStore((s) => s.sendOrder);
   const cancelCheckout = useAppStore((s) => s.cancelCheckout);
 
-  const [activeCategory, setActiveCategory] = useState<Category>("Entradas");
+  const [activeCategory, setActiveCategory] = useState<Category>("");
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [sendOpen, setSendOpen] = useState(false);
   const [sending, setSending] = useState(false);
@@ -74,6 +74,14 @@ export default function CheckPage({
     if (!hydrated) return;
     if (!valid) router.replace("/waiter");
   }, [hydrated, valid, router]);
+
+  // Categories load async from the catalog — default to the first one once available.
+  useEffect(() => {
+    if (categories.length === 0) return;
+    if (!activeCategory || !categories.includes(activeCategory)) {
+      setActiveCategory(categories[0]);
+    }
+  }, [categories, activeCategory]);
 
   const checkOrders = useMemo(
     () => (check ? ordersOfCheck(orders, check.id) : []),

@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useRef } from "react";
 import { fmt } from "@/lib/format";
 import type { Category, Product } from "@/types";
 
@@ -25,6 +26,15 @@ export function CatalogPanel({
   onClose,
 }: CatalogPanelProps) {
   const filtered = products.filter((p) => p.category === activeCategory);
+  const activeChipRef = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    activeChipRef.current?.scrollIntoView({
+      behavior: "smooth",
+      inline: "center",
+      block: "nearest",
+    });
+  }, [activeCategory]);
 
   return (
     <div className="flex h-full min-h-0 flex-col bg-[#fbfcfe]">
@@ -41,15 +51,16 @@ export function CatalogPanel({
             </button>
           )}
         </div>
-        <div className="flex flex-wrap gap-1.5">
+        <div className="no-scrollbar flex snap-x gap-1.5 overflow-x-auto scroll-smooth pb-0.5">
           {categories.map((c) => {
             const on = c === activeCategory;
             return (
               <button
                 key={c}
+                ref={on ? activeChipRef : undefined}
                 type="button"
                 onClick={() => onCategory(c)}
-                className={`rounded-[9px] border px-3.5 py-2 text-[0.86rem] font-bold ${
+                className={`shrink-0 snap-start whitespace-nowrap rounded-[9px] border px-3.5 py-2 text-[0.86rem] font-bold ${
                   on
                     ? "border-[#93c5fd] bg-[#eff6ff] text-[#1e3a8a]"
                     : "border-[#d7e0ea] bg-white text-[#334155]"

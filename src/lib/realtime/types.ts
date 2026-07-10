@@ -33,7 +33,8 @@ export type RealtimeEvent =
   | EventEnvelope<"check.checkout_started", { check: Check }>
   | EventEnvelope<"payment.created", { check: Check; payment: Payment }>
   | EventEnvelope<"fiscal.error", { check: Check; error: string }>
-  | EventEnvelope<"check.closed", { check: Check; table: Table }>;
+  | EventEnvelope<"check.closed", { check: Check; table: Table }>
+  | EventEnvelope<"erp.sync_error", { checkId: string; message: string }>;
 
 export type RealtimeEventType = RealtimeEvent["type"];
 

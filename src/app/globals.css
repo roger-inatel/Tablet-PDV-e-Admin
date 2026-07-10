@@ -67,6 +67,15 @@ body {
   background: transparent;
 }
 
+/* Hides the scrollbar on horizontal carousels (category rail) where swipe,
+   not the thumb, is the primary interaction. */
+.no-scrollbar {
+  scrollbar-width: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
 /* Short / landscape screens: reclaim vertical space from fixed chrome so the
    comanda item list and the login keypad stay usable (Tailwind has no
    height-based breakpoints by default). */

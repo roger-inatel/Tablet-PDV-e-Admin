@@ -15,7 +15,8 @@ import {
   draftsToOrderItems,
   mergeDraft,
 } from "@/lib/domain/order";
-import { PRODUCT_BY_ID } from "@/data/products";
+import { productsRepo } from "../productsRepo";
+import { recordOrderInErp } from "../erpSync";
 import { delay, uid } from "@/lib/format";
 import { createEvent, getRealtimeClient } from "@/lib/realtime";
 import { loadDb, saveDb, type MockDb } from "./database";
@@ -89,7 +90,8 @@ export const checksRepo: ChecksRepo = {
     const db = loadDb();
     const check = getCheck(db, checkId);
     assertCanEdit(check);
-    const product = PRODUCT_BY_ID[productId];
+    const products = await productsRepo.list();
+    const product = products.find((p) => p.id === productId);
     if (!product) throw new NotFoundError("Produto", productId);
     const updated: Check = {
       ...check,
@@ -191,7 +193,8 @@ export const checksRepo: ChecksRepo = {
     const check = getCheck(db, checkId);
     assertVersion(check, expectedVersion);
     assertCanRegisterPayment(check);
-    const amount = chargedTotal(db.orders.filter((o) => o.checkId === checkId));
+    const checkOrders = db.orders.filter((o) => o.checkId === checkId);
+    const amount = chargedTotal(checkOrders);
     const updated: Check = {
       ...check,
       payment: {
@@ -210,6 +213,28 @@ export const checksRepo: ChecksRepo = {
         payment: updated.payment!,
       }),
     );
+    // Best-effort sync into the real ERP order tables — never blocks the
+    // mock POS flow; failures surface as a toast (see erp.sync_error).
+    recordOrderInErp({
+      checkId,
+      tableNum: check.tableNum,
+      method,
+      items: checkOrders.flatMap((o) =>
+        o.items.map((it) => ({
+          productId: it.productId,
+          qty: it.qty,
+          unitPrice: it.unitPrice,
+        })),
+      ),
+      amount,
+    }).catch((e) => {
+      getRealtimeClient().publish(
+        createEvent("erp.sync_error", {
+          checkId,
+          message: e instanceof Error ? e.message : "Erro desconhecido",
+        }),
+      );
+    });
     // Async fiscal issuance — resolution arrives later as a realtime event.
     scheduleFiscalIssuance(checkId, opts?.simulateFiscalError === true);
     return updated;

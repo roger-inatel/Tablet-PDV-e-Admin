@@ -444,6 +444,11 @@ export const useAppStore = create<AppState>()(
                 orders: upsertOrder(s.orders, event.payload.order),
               }));
               break;
+            case "erp.sync_error":
+              get().pushToast(
+                `Pedido não sincronizado com o ERP: ${event.payload.message}`,
+              );
+              break;
           }
         },
 
