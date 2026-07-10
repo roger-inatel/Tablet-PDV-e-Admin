@@ -1,5 +1,7 @@
 # pnpm config (single-package repo).
 # Dependencies allowed to run postinstall build scripts:
 allowBuilds:
+  '@prisma/engines': true
+  prisma: true
   sharp: true
   unrs-resolver: true
