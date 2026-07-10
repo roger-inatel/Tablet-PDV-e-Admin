@@ -3,13 +3,8 @@
 // All identifiers in English; user-facing labels stay in pt-BR at the UI layer.
 // These shapes are the contract the NestJS backend implements (docs/CONTRACTS.md).
 
-/** Menu categories are user-visible content — values stay in pt-BR. */
-export type Category =
-  | "Entradas"
-  | "Pratos"
-  | "Sobremesas"
-  | "Bebidas"
-  | "Bar";
+/** Menu category — sourced from TB_CATEGORIA (DS_CATEGORIA). */
+export type Category = string;
 
 /** Preparation station (KDS). */
 export type Station = "kitchen" | "bar";

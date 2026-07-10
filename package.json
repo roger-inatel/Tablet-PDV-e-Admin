@@ -11,11 +11,13 @@
     "db:seed": "node prisma/seed.cjs",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
+    "prisma:db:pull": "prisma db pull",
     "prisma:studio": "prisma studio"
   },
   "dependencies": {
     "@prisma/adapter-mssql": "^7.8.0",
     "@prisma/client": "^7.8.0",
+    "@tanstack/react-query": "^5.101.2",
     "dotenv": "^17.4.2",
     "next": "^15.1.6",
     "react": "^19.0.0",
@@ -23,6 +25,7 @@
     "zustand": "^5.0.3"
   },
   "devDependencies": {
+    "@tanstack/react-query-devtools": "^5.101.2",
     "@types/mssql": "^12.3.0",
     "@types/node": "^22.10.7",
     "@types/react": "^19.0.7",

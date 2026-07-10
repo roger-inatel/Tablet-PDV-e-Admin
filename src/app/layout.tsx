@@ -5,6 +5,7 @@ import { StoreProvider } from "@/components/shell/StoreProvider";
 import { RealtimeBridge } from "@/components/shell/RealtimeBridge";
 import { ToastHost } from "@/components/shell/ToastHost";
 import { DevSwitcher } from "@/components/shell/DevSwitcher";
+import { QueryProvider } from "@/providers/query-provider";
 
 const ibmPlex = IBM_Plex_Sans({
   subsets: ["latin"],
@@ -27,12 +28,14 @@ export default function RootLayout({
   return (
     <html lang="pt-BR" className={ibmPlex.variable}>
       <body className="min-h-screen bg-app-bg font-sans text-ink antialiased">
-        <StoreProvider>
-          <RealtimeBridge />
-          {children}
-          <ToastHost />
-          <DevSwitcher />
-        </StoreProvider>
+        <QueryProvider>
+          <StoreProvider>
+            <RealtimeBridge />
+            {children}
+            <ToastHost />
+            <DevSwitcher />
+          </StoreProvider>
+        </QueryProvider>
       </body>
     </html>
   );

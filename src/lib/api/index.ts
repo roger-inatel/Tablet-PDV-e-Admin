@@ -1,6 +1,6 @@
 import type { Repos } from "./types";
 import { waitersRepo } from "./mock/waitersRepo";
-import { productsRepo } from "./mock/productsRepo";
+import { productsRepo } from "./productsRepo";
 import { stationsRepo } from "./mock/stationsRepo";
 import { tablesRepo } from "./mock/tablesRepo";
 import { checksRepo } from "./mock/checksRepo";
