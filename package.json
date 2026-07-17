@@ -12,7 +12,8 @@
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
     "prisma:db:pull": "prisma db pull",
-    "prisma:studio": "prisma studio"
+    "prisma:studio": "prisma studio",
+    "postinstall": "prisma generate"
   },
   "dependencies": {
     "@prisma/adapter-mssql": "^7.8.0",
