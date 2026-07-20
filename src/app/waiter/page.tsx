@@ -29,6 +29,8 @@ export default function WaiterTablesPage() {
   );
 
   const onCardClick = async (view: TableView) => {
+    // Checkout requested → the cashier owns it; the tile is read-only.
+    if (view.locked) return;
     if (view.kind === "free") {
       const check = await openCheck(view.table.id);
       if (check) router.push(`/waiter/table/${view.table.id}`);

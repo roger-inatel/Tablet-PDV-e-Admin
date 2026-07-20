@@ -1,26 +1,37 @@
-import type { Check, Order } from "@/types";
+import type {
+  Check,
+  Order,
+  Payment,
+  Settlement,
+  Table,
+  Tender,
+} from "@/types";
 import type { ChecksRepo } from "../types";
 import { InvalidTransitionError, NotFoundError } from "../errors";
 import {
   assertCanCancelCheckout,
   assertCanEdit,
   assertCanRegisterPayment,
-  assertCanRetryFiscal,
   assertCanStartCheckout,
   assertVersion,
 } from "@/lib/domain/stateMachines";
 import {
+  activeItems,
   changeDraftQty,
   chargedTotal,
+  computeChange,
   draftsToOrderItems,
   mergeDraft,
+  setDraftNote,
+  settlementTotal,
+  tendersPaid,
+  validateSettlement,
 } from "@/lib/domain/order";
 import { productsRepo } from "../productsRepo";
 import { recordOrderInErp } from "../erpSync";
 import { delay, uid } from "@/lib/format";
 import { createEvent, getRealtimeClient } from "@/lib/realtime";
 import { loadDb, saveDb, type MockDb } from "./database";
-import { scheduleFiscalIssuance } from "./fiscalService";
 
 // Mutation shape (mirrors the future server): load (read-through) -> pure
 // domain transition (throws 409/422) -> persist -> publish realtime event.
@@ -69,7 +80,6 @@ export const checksRepo: ChecksRepo = {
       version: 1,
       draftItems: [],
       payment: null,
-      fiscal: null,
       openedAt: new Date().toISOString(),
       closedAt: null,
     };
@@ -118,7 +128,22 @@ export const checksRepo: ChecksRepo = {
     return updated;
   },
 
-  async sendOrder(checkId, expectedVersion) {
+  async setDraftItemNote(checkId, key, notes) {
+    await delay();
+    const db = loadDb();
+    const check = getCheck(db, checkId);
+    assertCanEdit(check);
+    const updated: Check = {
+      ...check,
+      draftItems: setDraftNote(check.draftItems, key, notes),
+      version: check.version + 1,
+    };
+    persistCheck(db, updated);
+    getRealtimeClient().publish(createEvent("check.updated", { check: updated }));
+    return updated;
+  },
+
+  async sendOrder(checkId, expectedVersion, opts) {
     await delay();
     const db = loadDb();
     const check = getCheck(db, checkId);
@@ -140,6 +165,7 @@ export const checksRepo: ChecksRepo = {
       waiterId: check.waiterId,
       seq,
       createdAt: new Date().toISOString(),
+      priority: opts?.priority ?? "normal",
       items: draftsToOrderItems(check.draftItems),
     };
     const updated: Check = {
@@ -187,46 +213,105 @@ export const checksRepo: ChecksRepo = {
     return updated;
   },
 
-  async registerPayment(checkId, method, expectedVersion, opts) {
+  async registerPayment(checkId, input, expectedVersion) {
     await delay();
     const db = loadDb();
     const check = getCheck(db, checkId);
     assertVersion(check, expectedVersion);
     assertCanRegisterPayment(check);
+
     const checkOrders = db.orders.filter((o) => o.checkId === checkId);
-    const amount = chargedTotal(checkOrders);
+    const subtotal = chargedTotal(checkOrders);
+    const discount = Math.min(Math.max(0, input.discount ?? 0), subtotal);
+    const serviceFee = Math.max(0, input.serviceFee ?? 0);
+    const total = settlementTotal(subtotal, discount, serviceFee);
+
+    const valid = validateSettlement(total, input.tenders);
+    if (!valid.ok) {
+      throw new InvalidTransitionError("Pagamento", valid.reason ?? "inválido", "registrar");
+    }
+
+    const now = new Date().toISOString();
+    const tenders: Tender[] = input.tenders.map((t) => ({
+      id: "tnd-" + uid(),
+      method: t.method,
+      amount: t.amount,
+      createdAt: now,
+    }));
+    // Compat summary: dominant tender drives the single-method label.
+    const dominant = tenders.reduce((a, b) => (b.amount > a.amount ? b : a));
+    const payment: Payment = {
+      id: "pay-" + uid(),
+      method: dominant.method,
+      amount: total,
+      createdAt: now,
+    };
+    const settlement: Settlement = {
+      id: "stl-" + uid(),
+      subtotal,
+      discount,
+      discountKind: input.discountKind,
+      discountInput: input.discountInput,
+      serviceFee,
+      serviceFeeKind: input.serviceFeeKind,
+      serviceFeeInput: input.serviceFeeInput,
+      total,
+      tenders,
+      paid: tendersPaid(tenders),
+      changeDue: computeChange(total, tenders),
+      createdAt: now,
+    };
+
+    // Payment closes the check immediately and frees the table.
     const updated: Check = {
       ...check,
-      payment: {
-        id: "pay-" + uid(),
-        method,
-        amount,
-        createdAt: new Date().toISOString(),
-      },
-      fiscal: { status: "PROCESSING", attempts: 1 },
+      payment,
+      settlement,
+      status: "CLOSED",
+      closedAt: now,
       version: check.version + 1,
     };
-    persistCheck(db, updated);
-    getRealtimeClient().publish(
-      createEvent("payment.created", {
-        check: updated,
-        payment: updated.payment!,
-      }),
+    const table = db.tables.find((t) => t.id === check.tableId);
+    const freedTable: Table | undefined = table
+      ? { ...table, checkId: null }
+      : undefined;
+    persistCheck(
+      db,
+      updated,
+      freedTable
+        ? { tables: db.tables.map((t) => (t.id === freedTable.id ? freedTable : t)) }
+        : undefined,
     );
+    getRealtimeClient().publish(
+      freedTable
+        ? createEvent("check.closed", { check: updated, table: freedTable })
+        : createEvent("check.updated", { check: updated }),
+    );
+
     // Best-effort sync into the real ERP order tables — never blocks the
     // mock POS flow; failures surface as a toast (see erp.sync_error).
+    const waiter = db.waiters.find((w) => w.id === check.waiterId);
     recordOrderInErp({
       checkId,
       tableNum: check.tableNum,
-      method,
+      subtotal,
+      discount,
+      discountPct: input.discountKind === "percent" ? input.discountInput : undefined,
+      serviceFee,
+      serviceFeePct:
+        input.serviceFeeKind === "percent" ? input.serviceFeeInput : undefined,
+      total,
+      tenders: input.tenders,
+      codVend: waiter?.codVend,
+      // Voided items were removed from the check (manager-approved) and are
+      // already out of `subtotal` — they must not be invoiced in the ERP.
       items: checkOrders.flatMap((o) =>
-        o.items.map((it) => ({
+        activeItems(o).map((it) => ({
           productId: it.productId,
           qty: it.qty,
           unitPrice: it.unitPrice,
         })),
       ),
-      amount,
     }).catch((e) => {
       getRealtimeClient().publish(
         createEvent("erp.sync_error", {
@@ -235,30 +320,6 @@ export const checksRepo: ChecksRepo = {
         }),
       );
     });
-    // Async fiscal issuance — resolution arrives later as a realtime event.
-    scheduleFiscalIssuance(checkId, opts?.simulateFiscalError === true);
-    return updated;
-  },
-
-  async retryFiscal(checkId) {
-    await delay();
-    const db = loadDb();
-    const check = getCheck(db, checkId);
-    assertCanRetryFiscal(check);
-    const updated: Check = {
-      ...check,
-      fiscal: {
-        ...check.fiscal!,
-        status: "PROCESSING",
-        attempts: check.fiscal!.attempts + 1,
-        errorMsg: undefined,
-      },
-      version: check.version + 1,
-    };
-    persistCheck(db, updated);
-    getRealtimeClient().publish(createEvent("check.updated", { check: updated }));
-    // Retries always succeed in the mock (deterministic demo).
-    scheduleFiscalIssuance(checkId, false);
     return updated;
   },
 

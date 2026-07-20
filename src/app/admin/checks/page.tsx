@@ -2,17 +2,13 @@
 
 import { useMemo, useState } from "react";
 import { AdminHeader } from "@/components/admin/AdminHeader";
-import { CheckoutModal } from "@/components/check/CheckoutModal";
+import { PaymentModal } from "@/components/check/PaymentModal";
 import { Avatar } from "@/components/ui/Avatar";
 import { StatusChip } from "@/components/ui/StatusChip";
 import { Loader } from "@/components/ui/Loader";
 import { useAppStore } from "@/store/useAppStore";
 import { ordersOfCheck, waitersById } from "@/store/selectors";
-import {
-  checkStatusMeta,
-  fiscalStatusMeta,
-  PAYMENT_METHOD_LABEL,
-} from "@/lib/domain/check";
+import { checkStatusMeta, PAYMENT_METHOD_LABEL } from "@/lib/domain/check";
 import { chargedTotal, checkTotal } from "@/lib/domain/order";
 import { fmt, firstName } from "@/lib/format";
 
@@ -52,7 +48,6 @@ export default function AdminChecksPage() {
           waiter: w,
           total: checkTotal(c, checkOrders),
           statusMeta: checkStatusMeta(c.status),
-          fiscalMeta: c.fiscal ? fiscalStatusMeta(c.fiscal.status) : null,
         };
       });
   }, [checks, orders, waiters]);
@@ -68,13 +63,12 @@ export default function AdminChecksPage() {
             <div className="rounded-card border border-line bg-white px-5 py-4">
               <h2 className="m-0 mb-0.5 text-[1.08rem] text-navy">Todas as comandas</h2>
               <p className="m-0 text-[0.88rem] text-ink-muted">
-                Acompanhe o ciclo de cada comanda — abertura, fechamento, pagamento e
-                emissão fiscal.
+                Acompanhe o ciclo de cada comanda — abertura, fechamento e pagamento.
               </p>
             </div>
 
             <div className="grid gap-2.5">
-              {rows.map(({ check: c, waiter: w, total, statusMeta, fiscalMeta }) => (
+              {rows.map(({ check: c, waiter: w, total, statusMeta }) => (
                 <div
                   key={c.id}
                   className="grid gap-2.5 rounded-card border border-line bg-white px-4 py-3.5"
@@ -85,9 +79,6 @@ export default function AdminChecksPage() {
                         Mesa {c.tableNum}
                       </strong>
                       <StatusChip kind={statusMeta.kind}>{statusMeta.label}</StatusChip>
-                      {fiscalMeta && (
-                        <StatusChip kind={fiscalMeta.kind}>{fiscalMeta.label}</StatusChip>
-                      )}
                     </div>
                     <strong className="text-[1.05rem] text-navy">{fmt(total)}</strong>
                   </div>
@@ -105,7 +96,6 @@ export default function AdminChecksPage() {
                       {c.payment
                         ? `Pagamento: ${PAYMENT_METHOD_LABEL[c.payment.method]}`
                         : "Sem pagamento"}
-                      {c.fiscal?.errorMsg ? ` · ${c.fiscal.errorMsg}` : ""}
                     </span>
                   </div>
 
@@ -136,24 +126,6 @@ export default function AdminChecksPage() {
                           Registrar pagamento
                         </button>
                       )}
-                      {c.fiscal?.status === "ERROR" && (
-                        <button
-                          type="button"
-                          onClick={() => setCheckoutId(c.id)}
-                          className="rounded-[9px] bg-[#dc2626] px-3.5 py-2 text-[0.84rem] font-bold text-white"
-                        >
-                          Resolver erro fiscal
-                        </button>
-                      )}
-                      {c.fiscal?.status === "PROCESSING" && (
-                        <button
-                          type="button"
-                          onClick={() => setCheckoutId(c.id)}
-                          className="rounded-[9px] border border-[#dbe2ea] bg-white px-3.5 py-2 text-[0.84rem] font-bold text-[#334155]"
-                        >
-                          Acompanhar emissão
-                        </button>
-                      )}
                     </div>
                   )}
                 </div>
@@ -164,9 +136,9 @@ export default function AdminChecksPage() {
       </div>
 
       {checkoutCheck && (
-        <CheckoutModal
+        <PaymentModal
           check={checkoutCheck}
-          total={chargedTotal(ordersOfCheck(orders, checkoutCheck.id))}
+          subtotal={chargedTotal(ordersOfCheck(orders, checkoutCheck.id))}
           onClose={() => setCheckoutId(null)}
         />
       )}
