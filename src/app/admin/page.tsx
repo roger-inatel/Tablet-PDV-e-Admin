@@ -1,7 +1,6 @@
 "use client";
 
 import { useMemo } from "react";
-import Link from "next/link";
 import { AdminHeader } from "@/components/admin/AdminHeader";
 import { KpiCard } from "@/components/admin/KpiCard";
 import { Avatar } from "@/components/ui/Avatar";
@@ -12,7 +11,6 @@ import {
   activeChecks,
   activeWaiters,
   checksInCheckout,
-  checksWithFiscalError,
   ordersOfCheck,
   outstandingTotal,
   waiterTableCount,
@@ -21,7 +19,6 @@ import {
 import { checkStatusMeta } from "@/lib/domain/check";
 import { checkTotal } from "@/lib/domain/order";
 import { fmt, firstName } from "@/lib/format";
-import type { ChipKind } from "@/types";
 
 export default function DashboardPage() {
   const hydrated = useAppStore((s) => s.hydrated);
@@ -35,7 +32,6 @@ export default function DashboardPage() {
     const free = tables.filter((t) => t.checkId === null);
     const active = activeChecks(checks);
     const inCheckout = checksInCheckout(checks);
-    const fiscalErrors = checksWithFiscalError(checks);
     const activeStaff = activeWaiters(waiters);
     const byId = waitersById(waiters);
     const totalTables = tables.length || 1;
@@ -55,7 +51,7 @@ export default function DashboardPage() {
       {
         label: "Em fechamento",
         value: String(inCheckout.length),
-        helper: "aguardando pagamento/fiscal",
+        helper: "aguardando pagamento",
       },
       {
         label: "Em aberto",
@@ -70,10 +66,7 @@ export default function DashboardPage() {
       const items =
         c.draftItems.reduce((s, d) => s + d.qty, 0) +
         checkOrders.reduce((s, o) => s + o.items.reduce((a, i) => a + i.qty, 0), 0);
-      const fiscalError = c.fiscal?.status === "ERROR";
-      const meta = fiscalError
-        ? { kind: "red" as ChipKind, label: "Erro fiscal" }
-        : checkStatusMeta(c.status);
+      const meta = checkStatusMeta(c.status);
       return {
         id: c.id,
         table: `Mesa ${c.tableNum}`,
@@ -103,7 +96,7 @@ export default function DashboardPage() {
       tableCount: waiterTableCount(checks, w.id),
     }));
 
-    return { kpis, rows, bars, onDuty, fiscalErrors };
+    return { kpis, rows, bars, onDuty };
   }, [tables, checks, orders, waiters]);
 
   return (
@@ -114,23 +107,6 @@ export default function DashboardPage() {
           <Loader />
         ) : (
           <div className="grid gap-[18px] animate-[mfade_.22s_ease]">
-            {data.fiscalErrors.length > 0 && (
-              <Link
-                href="/admin/checks"
-                className="flex flex-wrap items-center justify-between gap-2 rounded-card border border-[#fecaca] bg-[#fef2f2] px-4 py-3"
-              >
-                <span className="text-[0.9rem] font-bold text-[#991b1b]">
-                  ⚠ {data.fiscalErrors.length}{" "}
-                  {data.fiscalErrors.length === 1
-                    ? "comanda com erro fiscal"
-                    : "comandas com erro fiscal"}
-                </span>
-                <span className="text-[0.84rem] font-semibold text-[#b91c1c]">
-                  Resolver no caixa →
-                </span>
-              </Link>
-            )}
-
             {/* KPIs */}
             <div className="grid gap-3.5 [grid-template-columns:repeat(auto-fit,minmax(210px,1fr))]">
               {data.kpis.map((k) => (
