@@ -11,10 +11,14 @@ const PRICE_TABELA_VENDA_ID = process.env.PRODUCTS_PRICE_TABELA_VENDA_ID
   ? Number(process.env.PRODUCTS_PRICE_TABELA_VENDA_ID)
   : null;
 
-// TB_FAMILIA has no "is a beverage" flag — DS_FAMILIA mixes drink types,
-// drink brands and non-drink goods. KDS routing (kitchen vs bar) is derived
-// from this manually reviewed list of beverage families.
-const BAR_FAMILIES = new Set([
+// There is no "is a beverage" flag in the ERP. KDS routing (kitchen vs bar) is
+// derived from this manually reviewed list of beverage groups, matched against
+// BOTH the category and the family: databases differ on where the drink notion
+// lives (e.g. category "CERVEJAS" with family "LONG NECK", or family
+// "CERVEJAS" directly). Matching both keeps routing correct either way.
+const BAR_GROUPS = new Set([
+  "BEBIDAS",
+  "BAR",
   "CERVEJAS",
   "VINHOS",
   "REFRIGERANTES",
@@ -38,8 +42,11 @@ const BAR_FAMILIES = new Set([
   "REFRIKO",
 ]);
 
-function stationFor(familyName: string): Station {
-  return BAR_FAMILIES.has(familyName) ? "bar" : "kitchen";
+function stationFor(categoryName: string, familyName: string): Station {
+  const norm = (s: string) => s.trim().toUpperCase();
+  return BAR_GROUPS.has(norm(categoryName)) || BAR_GROUPS.has(norm(familyName))
+    ? "bar"
+    : "kitchen";
 }
 
 export async function GET() {
@@ -73,7 +80,7 @@ export async function GET() {
       id: String(p.ID_PRODUTO),
       name: p.DS_PROD_MOBILE || p.DS_PRODUTO,
       category: p.TB_CATEGORIA.DS_CATEGORIA,
-      station: stationFor(p.TB_FAMILIA.DS_FAMILIA),
+      station: stationFor(p.TB_CATEGORIA.DS_CATEGORIA, p.TB_FAMILIA.DS_FAMILIA),
       price: priceByProductId.get(p.ID_PRODUTO) ?? 0,
     }));
 
