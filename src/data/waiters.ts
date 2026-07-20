@@ -2,6 +2,11 @@ import type { Waiter } from "@/types";
 
 // Staff seed: the 4 waiters + the manager (cashier/panel).
 // `roleLabel` is user-facing copy and stays in pt-BR.
+//
+// `codVend` must reference an existing RL_EMPRESA_VENDEDOR.COD_VEND — an
+// unknown value breaks the FK and drops the ERP order write. Only the sellers
+// that actually exist in the database are mapped; the rest stay undefined and
+// simply record the order without seller attribution.
 export const WAITERS: Waiter[] = [
   {
     id: "carlos",
@@ -14,6 +19,7 @@ export const WAITERS: Waiter[] = [
     roleLabel: "Garçom",
     status: "ACTIVE",
     phone: "(11) 98888-1234",
+    codVend: 1,
   },
   {
     id: "marina",
@@ -26,6 +32,7 @@ export const WAITERS: Waiter[] = [
     roleLabel: "Garçonete",
     status: "ACTIVE",
     phone: "(11) 98888-2222",
+    codVend: 1101,
   },
   {
     id: "bruno",

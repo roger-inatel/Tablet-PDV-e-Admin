@@ -21,12 +21,29 @@ export interface PedidoItemInput {
   unitPrice: number;
 }
 
+export interface PedidoTenderInput {
+  method: PaymentMethod;
+  amount: number;
+}
+
 export interface RecordPedidoInput {
   checkId: string;
   tableNum: number;
-  method: PaymentMethod;
+  /** Sum of items before adjustments. */
+  subtotal: number;
+  /** Absolute discount applied (R$). */
+  discount: number;
+  discountPct?: number;
+  /** Absolute service fee applied (R$). */
+  serviceFee: number;
+  serviceFeePct?: number;
+  /** Charged amount = subtotal - discount + serviceFee. */
+  total: number;
+  /** One or more tenders (split payment); one TB_PEDIDO_PARCELA per tender. */
+  tenders: PedidoTenderInput[];
+  /** ERP seller code for revenue attribution (nullable). */
+  codVend?: number;
   items: PedidoItemInput[];
-  amount: number;
 }
 
 /**
@@ -35,7 +52,12 @@ export interface RecordPedidoInput {
  * MAX+1 inside this same transaction (see nextId).
  */
 export async function recordPedido(input: RecordPedidoInput): Promise<void> {
-  const idFormaPagto = FORMA_PAGTO_BY_METHOD[input.method];
+  // The header form-of-payment mirrors the largest tender (a split payment
+  // still needs a single ID_FORMA_PAGTO on TB_PEDIDO — the per-tender detail
+  // lives in TB_PEDIDO_PARCELA).
+  const dominant = input.tenders.reduce((a, b) => (b.amount > a.amount ? b : a));
+  const idFormaPagto = FORMA_PAGTO_BY_METHOD[dominant.method];
+  const totalComDesconto = Math.round((input.subtotal - input.discount) * 100) / 100;
   const now = new Date();
 
   await prisma.$transaction(async (tx) => {
@@ -53,12 +75,20 @@ export async function recordPedido(input: RecordPedidoInput): Promise<void> {
         ID_ENDERECO_FATURAMENTO: ENDERECO_AVULSO_ID,
         ID_ENDERECO_ENTREGA: ENDERECO_AVULSO_ID,
         ID_FILIAL: EMPRESA_ID,
+        ID_EMPRESA_VENDEDOR: input.codVend ?? null,
         ID_FORMA_PAGTO: idFormaPagto,
         ID_CONDICAO_PAGTO: CONDICAO_PAGTO_A_VISTA,
         FL_BLOQUEADO: false,
         TP_FRETE: "9",
         ESPECIE_FRETE: "9",
-        VL_FINANCEIRO: input.amount,
+        VL_TOTAL_PRODUTO: input.subtotal,
+        VL_DESCONTO: input.discount,
+        VL_PERC_DESCONTO: input.discountPct ?? null,
+        VL_TOTAL_COM_DESCONTO: totalComDesconto,
+        VL_ACRESCIMO: input.serviceFee,
+        VL_PERC_ACRESCIMO: input.serviceFeePct ?? null,
+        VL_TOTAL_COM_ACRESCIMO: input.total,
+        VL_FINANCEIRO: input.total,
         FL_PDV: true,
         ID_USER_INC: USUARIO_SISTEMA_ID,
         DS_OBS_PEDIDO: `Mesa ${input.tableNum} - comanda ${input.checkId}`,
@@ -67,6 +97,13 @@ export async function recordPedido(input: RecordPedidoInput): Promise<void> {
 
     for (const item of input.items) {
       const idProduto = Number(item.productId);
+      // Demo/seed items use non-numeric ids (e.g. "pr3") that don't exist in the
+      // ERP — fail with a readable message instead of a Prisma validation dump.
+      if (!Number.isInteger(idProduto)) {
+        throw new Error(
+          `Produto ${item.productId} não pertence ao catálogo do ERP (id não numérico).`,
+        );
+      }
       const preco = await tx.tB_TABELA_VENDA_PRECO.findFirst({
         where: { ID_TABELA_VENDA: TABELA_VENDA_ID, ID_PRODUTO: idProduto },
         select: { ID_TABELA_VENDA_PRECO: true },
@@ -98,28 +135,35 @@ export async function recordPedido(input: RecordPedidoInput): Promise<void> {
       });
     }
 
-    const idPedidoParcela = await nextId(
-      tx,
-      "TB_PEDIDO_PARCELA",
-      "ID_PEDIDO_PARCELA",
-    );
+    // One installment (parcela) per tender — this is how a split payment is
+    // persisted. PKs stay unique because nextId re-reads MAX+1 each iteration
+    // within the locked transaction.
+    let nrParcela = 0;
+    for (const tender of input.tenders) {
+      nrParcela += 1;
+      const idPedidoParcela = await nextId(
+        tx,
+        "TB_PEDIDO_PARCELA",
+        "ID_PEDIDO_PARCELA",
+      );
 
-    await tx.tB_PEDIDO_PARCELA.create({
-      data: {
-        ID_PEDIDO_PARCELA: idPedidoParcela,
-        ID_PEDIDO: idPedido,
-        NR_PARCELA: 1,
-        DT_VENCIMENTO: now,
-        VL_PARCELA: input.amount,
-        VL_PARCELA_2: input.amount,
-        VL_PARCELA_3: input.amount,
-        ID_STATUS: STATUS_PARCELA_BAIXADO,
-        ID_FORMA_PAGTO: idFormaPagto,
-        ID_CONDICAO_PAGTO: CONDICAO_PAGTO_A_VISTA,
-        ID_USER_INC: USUARIO_SISTEMA_ID,
-        DT_RECEBIMENTO: now,
-        VL_RECEBIDO: input.amount,
-      },
-    });
+      await tx.tB_PEDIDO_PARCELA.create({
+        data: {
+          ID_PEDIDO_PARCELA: idPedidoParcela,
+          ID_PEDIDO: idPedido,
+          NR_PARCELA: nrParcela,
+          DT_VENCIMENTO: now,
+          VL_PARCELA: tender.amount,
+          VL_PARCELA_2: tender.amount,
+          VL_PARCELA_3: tender.amount,
+          ID_STATUS: STATUS_PARCELA_BAIXADO,
+          ID_FORMA_PAGTO: FORMA_PAGTO_BY_METHOD[tender.method],
+          ID_CONDICAO_PAGTO: CONDICAO_PAGTO_A_VISTA,
+          ID_USER_INC: USUARIO_SISTEMA_ID,
+          DT_RECEBIMENTO: now,
+          VL_RECEBIDO: tender.amount,
+        },
+      });
+    }
   });
 }
