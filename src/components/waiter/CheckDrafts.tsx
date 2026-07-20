@@ -11,10 +11,17 @@ interface CheckDraftsProps {
   editable: boolean;
   onInc: (key: string) => void;
   onDec: (key: string) => void;
+  onNote: (key: string, notes: string) => void;
 }
 
 /** "Itens a enviar" section — the pre-dispatch draft lines. */
-export function CheckDrafts({ drafts, editable, onInc, onDec }: CheckDraftsProps) {
+export function CheckDrafts({
+  drafts,
+  editable,
+  onInc,
+  onDec,
+  onNote,
+}: CheckDraftsProps) {
   if (drafts.length === 0) return null;
 
   return (
@@ -32,41 +39,63 @@ export function CheckDrafts({ drafts, editable, onInc, onDec }: CheckDraftsProps
         {drafts.map((d) => (
           <div
             key={d.key}
-            className="flex items-center gap-3 rounded-[11px] border border-dashed border-[#cbd5e1] bg-white px-[13px] py-[11px]"
+            className="grid gap-2 rounded-[11px] border border-dashed border-[#cbd5e1] bg-white px-[13px] py-[11px]"
           >
-            <div className="min-w-0 flex-1">
-              <div className="truncate text-[0.94rem] font-bold text-navy">
-                {d.qty > 1 ? `${d.qty}× ${d.name}` : d.name}
+            <div className="flex items-center gap-3">
+              <div className="min-w-0 flex-1">
+                <div className="truncate text-[0.94rem] font-bold text-navy">
+                  {d.qty > 1 ? `${d.qty}× ${d.name}` : d.name}
+                </div>
+                <div className="mt-[3px] flex flex-wrap items-center gap-x-2 gap-y-1">
+                  <StatusChip kind="neutral">
+                    {d.station === "kitchen" ? "Cozinha" : "Bar"}
+                  </StatusChip>
+                  <span className="text-[0.8rem] text-ink-muted">
+                    {fmt(d.unitPrice * d.qty)}
+                  </span>
+                </div>
               </div>
-              <div className="mt-[3px] flex flex-wrap items-center gap-x-2 gap-y-1">
-                <StatusChip kind="neutral">
-                  {d.station === "kitchen" ? "Cozinha" : "Bar"}
-                </StatusChip>
-                <span className="text-[0.8rem] text-ink-muted">
-                  {fmt(d.unitPrice * d.qty)}
-                </span>
-              </div>
+              {editable && (
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => onDec(d.key)}
+                    className="h-[38px] w-[38px] rounded-[9px] border border-[#dbe2ea] bg-[#f8fafc] text-[1.2rem] font-bold leading-none text-[#475569]"
+                  >
+                    −
+                  </button>
+                  <span className="min-w-[22px] text-center text-[1rem] font-extrabold text-navy">
+                    {d.qty}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => onInc(d.key)}
+                    className="h-[38px] w-[38px] rounded-[9px] border border-[#cfe1f5] bg-[#eff6ff] text-[1.2rem] font-bold leading-none text-[#1f4e79]"
+                  >
+                    +
+                  </button>
+                </div>
+              )}
             </div>
-            {editable && (
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => onDec(d.key)}
-                  className="h-[38px] w-[38px] rounded-[9px] border border-[#dbe2ea] bg-[#f8fafc] text-[1.2rem] font-bold leading-none text-[#475569]"
-                >
-                  −
-                </button>
-                <span className="min-w-[22px] text-center text-[1rem] font-extrabold text-navy">
-                  {d.qty}
-                </span>
-                <button
-                  type="button"
-                  onClick={() => onInc(d.key)}
-                  className="h-[38px] w-[38px] rounded-[9px] border border-[#cfe1f5] bg-[#eff6ff] text-[1.2rem] font-bold leading-none text-[#1f4e79]"
-                >
-                  +
-                </button>
-              </div>
+
+            {editable ? (
+              <input
+                type="text"
+                defaultValue={d.notes ?? ""}
+                onBlur={(e) => {
+                  if ((e.target.value.trim() || "") !== (d.notes ?? ""))
+                    onNote(d.key, e.target.value);
+                }}
+                placeholder="Observação (ex.: sem cebola, ponto da carne…)"
+                className="w-full rounded-[8px] border border-[#eef1f6] bg-[#fbfcfe] px-2.5 py-1.5 text-[0.82rem] text-navy outline-none focus:border-brand-600"
+              />
+            ) : (
+              d.notes && (
+                <div className="flex items-start gap-1.5 text-[0.82rem] italic text-ink-muted">
+                  <Icon name="printer" size={12} />
+                  <span>{d.notes}</span>
+                </div>
+              )
             )}
           </div>
         ))}

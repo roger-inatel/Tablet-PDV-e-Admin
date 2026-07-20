@@ -4,18 +4,19 @@ import { useEffect, useMemo, useState } from "react";
 import { OrderCard } from "./OrderCard";
 import { useAppStore } from "@/store/useAppStore";
 import { kdsQueue, waitersById } from "@/store/selectors";
+import { stationReadyAt } from "@/lib/domain/order";
 import { firstName } from "@/lib/format";
 import type { OrderItemStatus, Station } from "@/types";
 
 type Column = "RECEIVED" | "PREPARING" | "READY";
 
 const COLUMNS: { id: Column; title: string; accent: string }[] = [
-  { id: "RECEIVED", title: "Recebido", accent: "#f59e0b" },
-  { id: "PREPARING", title: "Em preparo", accent: "#b45309" },
+  { id: "RECEIVED", title: "Novo Pedido", accent: "#f59e0b" },
+  { id: "PREPARING", title: "Em Preparo", accent: "#b45309" },
   { id: "READY", title: "Pronto", accent: "#16a34a" },
 ];
 
-/** Which board column a card stage belongs to (SENT waits in "Recebido"). */
+/** Which board column a card stage belongs to (SENT & RECEIVED = "Novo Pedido"). */
 function columnOf(stage: OrderItemStatus): Column {
   if (stage === "SENT" || stage === "RECEIVED") return "RECEIVED";
   return stage;
@@ -50,12 +51,18 @@ export function KdsBoard({ station }: { station: Station }) {
       READY: [],
     };
     for (const card of queue) map[columnOf(card.stage)].push(card);
-    // Fresh dispatches first inside "Recebido".
+    // Fresh dispatches first inside "Novo Pedido".
     map.RECEIVED.sort((a, b) =>
       a.stage === b.stage ? 0 : a.stage === "SENT" ? -1 : 1,
     );
+    // "Pronto" is the pickup queue: whatever was just finished goes on top,
+    // so the waiter sees the freshest plate first (the other columns stay
+    // oldest-first, which is the right order for what still has to be cooked).
+    map.READY.sort(
+      (a, b) => stationReadyAt(b.order, station) - stationReadyAt(a.order, station),
+    );
     return map;
-  }, [queue]);
+  }, [queue, station]);
 
   const renderColumn = (col: (typeof COLUMNS)[number]) => (
     <div key={col.id} className="flex min-h-0 flex-col rounded-[14px] bg-white/[0.04]">

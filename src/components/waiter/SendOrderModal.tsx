@@ -1,14 +1,16 @@
 "use client";
 
+import { useState } from "react";
 import { Modal } from "@/components/ui/Modal";
 import { Icon } from "@/components/ui/Icon";
-import type { DraftItem, Station } from "@/types";
+import { SegmentedToggle } from "@/components/ui/SegmentedToggle";
+import type { DraftItem, OrderPriority, Station } from "@/types";
 
 interface SendOrderModalProps {
   drafts: DraftItem[];
   sending: boolean;
   onClose: () => void;
-  onConfirm: () => void;
+  onConfirm: (priority: OrderPriority) => void;
 }
 
 const STATION_META: Record<
@@ -37,6 +39,7 @@ export function SendOrderModal({
   onClose,
   onConfirm,
 }: SendOrderModalProps) {
+  const [priority, setPriority] = useState<OrderPriority>("normal");
   const groups = (["kitchen", "bar"] as Station[])
     .map((station) => ({
       station,
@@ -76,14 +79,21 @@ export function SendOrderModal({
                   {g.items.map((d) => (
                     <div
                       key={d.key}
-                      className="flex items-center justify-between rounded-[10px] border border-[#eef1f6] bg-[#fbfcfe] px-3 py-2.5"
+                      className="grid gap-1 rounded-[10px] border border-[#eef1f6] bg-[#fbfcfe] px-3 py-2.5"
                     >
-                      <span className="min-w-0 truncate text-[0.92rem] font-semibold text-navy">
-                        {d.name}
-                      </span>
-                      <span className="shrink-0 font-extrabold text-[#1f4e79]">
-                        {d.qty}×
-                      </span>
+                      <div className="flex items-center justify-between">
+                        <span className="min-w-0 truncate text-[0.92rem] font-semibold text-navy">
+                          {d.name}
+                        </span>
+                        <span className="shrink-0 font-extrabold text-[#1f4e79]">
+                          {d.qty}×
+                        </span>
+                      </div>
+                      {d.notes && (
+                        <span className="text-[0.78rem] italic text-ink-muted">
+                          Obs.: {d.notes}
+                        </span>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -92,7 +102,22 @@ export function SendOrderModal({
           })}
         </div>
 
-        <div className="mt-[18px] flex gap-2.5">
+        <div className="mt-[18px] grid gap-1.5">
+          <span className="text-[0.74rem] font-bold uppercase tracking-[0.05em] text-ink-muted">
+            Prioridade do pedido
+          </span>
+          <SegmentedToggle<OrderPriority>
+            value={priority}
+            onChange={setPriority}
+            options={[
+              { value: "normal", label: "Normal" },
+              { value: "alta", label: "Alta" },
+              { value: "urgente", label: "Urgente" },
+            ]}
+          />
+        </div>
+
+        <div className="mt-[14px] flex gap-2.5">
           <button
             type="button"
             onClick={onClose}
@@ -102,7 +127,7 @@ export function SendOrderModal({
           </button>
           <button
             type="button"
-            onClick={sending ? undefined : onConfirm}
+            onClick={sending ? undefined : () => onConfirm(priority)}
             className={`flex-1 rounded-[11px] py-[13px] text-[0.92rem] font-extrabold text-white ${
               sending ? "cursor-wait bg-[#94a3b8]" : "bg-[#1f4e79]"
             }`}
