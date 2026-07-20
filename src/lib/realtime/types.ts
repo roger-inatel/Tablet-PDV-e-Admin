@@ -1,7 +1,7 @@
 import type {
   Check,
   Order,
-  Payment,
+  RemovalRequest,
   Station,
   Table,
 } from "@/types";
@@ -31,9 +31,10 @@ export type RealtimeEvent =
   | EventEnvelope<"order_item.preparing", { order: Order; itemId: string; station: Station }>
   | EventEnvelope<"order_item.ready", { order: Order; itemId: string; station: Station }>
   | EventEnvelope<"check.checkout_started", { check: Check }>
-  | EventEnvelope<"payment.created", { check: Check; payment: Payment }>
-  | EventEnvelope<"fiscal.error", { check: Check; error: string }>
   | EventEnvelope<"check.closed", { check: Check; table: Table }>
+  | EventEnvelope<"removal.requested", { removal: RemovalRequest }>
+  | EventEnvelope<"removal.approved", { removal: RemovalRequest; order: Order }>
+  | EventEnvelope<"removal.rejected", { removal: RemovalRequest }>
   | EventEnvelope<"erp.sync_error", { checkId: string; message: string }>;
 
 export type RealtimeEventType = RealtimeEvent["type"];

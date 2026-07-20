@@ -8,8 +8,10 @@ import type {
   CheckVariant,
   Order,
   OrderItemStatus,
-  PaymentMethod,
+  OrderPriority,
   Product,
+  RegisterPaymentInput,
+  RemovalRequest,
   Session,
   Station,
   StationConfig,
@@ -20,7 +22,19 @@ import type {
 } from "@/types";
 import { repos, isConflictError } from "@/lib/api";
 import type { RealtimeEvent } from "@/lib/realtime";
+import { isOrderReady } from "@/lib/domain/order";
 import { uid } from "@/lib/format";
+
+/** "Your table's order is ready" — transient, per tab (never persisted). */
+export interface WaiterNotification {
+  id: string;
+  orderId: string;
+  tableId: number;
+  tableNum: number;
+  orderSeq: number;
+  createdAt: string; // ISO
+  read: boolean;
+}
 
 /** Payload for creating a new waiter from the admin drawer. */
 export interface NewWaiterInput {
@@ -72,6 +86,12 @@ function upsertTable(list: Table[], t: Table): Table[] {
   return list.map((x) => (x.id === t.id ? t : x));
 }
 
+function upsertRemoval(list: RemovalRequest[], r: RemovalRequest): RemovalRequest[] {
+  return list.some((x) => x.id === r.id)
+    ? list.map((x) => (x.id === r.id ? r : x))
+    : [...list, r];
+}
+
 interface AppState {
   // Reference data (loaded once from the repos)
   waiters: Waiter[];
@@ -83,6 +103,7 @@ interface AppState {
   tables: Table[];
   checks: Check[];
   orders: Order[];
+  removals: RemovalRequest[];
 
   // Session (persisted per-tab in sessionStorage)
   session: Session | null;
@@ -93,6 +114,8 @@ interface AppState {
 
   // Transient
   toast: string | null;
+  /** Ready-order alerts for the logged-in waiter (per tab, not persisted). */
+  notifications: WaiterNotification[];
   loaded: boolean;
   hydrated: boolean;
 
@@ -111,15 +134,14 @@ interface AppState {
   addDraftItem: (checkId: string, productId: string) => Promise<void>;
   incDraftItem: (checkId: string, key: string) => Promise<void>;
   decDraftItem: (checkId: string, key: string) => Promise<void>;
-  sendOrder: (checkId: string) => Promise<boolean>;
+  setDraftItemNote: (checkId: string, key: string, notes: string) => Promise<void>;
+  sendOrder: (checkId: string, priority?: OrderPriority) => Promise<boolean>;
   startCheckout: (checkId: string) => Promise<boolean>;
   cancelCheckout: (checkId: string) => Promise<void>;
   registerPayment: (
     checkId: string,
-    method: PaymentMethod,
-    simulateFiscalError: boolean,
+    input: RegisterPaymentInput,
   ) => Promise<boolean>;
-  retryFiscal: (checkId: string) => Promise<void>;
   transferCheck: (checkId: string, waiterId: string) => Promise<void>;
 
   // ---- KDS (station) ----
@@ -129,6 +151,15 @@ interface AppState {
     itemId: string,
     to: OrderItemStatus,
   ) => Promise<void>;
+
+  // ---- removals (waiter requests / manager decides) ----
+  requestRemoval: (
+    orderId: string,
+    orderItemId: string,
+    reason: string,
+  ) => Promise<boolean>;
+  approveRemoval: (id: string, note?: string) => Promise<void>;
+  rejectRemoval: (id: string, note?: string) => Promise<void>;
 
   // ---- waiters (admin) ----
   saveWaiter: (id: string, patch: Partial<Waiter>) => Promise<void>;
@@ -142,6 +173,8 @@ interface AppState {
   setCheckVariant: (v: CheckVariant) => void;
   pushToast: (msg: string) => void;
   clearToast: () => void;
+  markTableNotificationsRead: (tableId: number) => void;
+  clearNotifications: () => void;
 }
 
 let toastTimer: ReturnType<typeof setTimeout> | undefined;
@@ -174,25 +207,36 @@ export const useAppStore = create<AppState>()(
         tables: [],
         checks: [],
         orders: [],
+        removals: [],
         session: null,
         tablesVariant: "detailed",
         checkVariant: "split",
         toast: null,
+        notifications: [],
         loaded: false,
         hydrated: false,
 
         init: async () => {
           if (get().loaded) return;
-          const [waiters, products, categories, stations, tables, checks, orders] =
-            await Promise.all([
-              repos.waiters.list(),
-              repos.products.list(),
-              repos.products.categories(),
-              repos.stations.list(),
-              repos.tables.list(),
-              repos.checks.list(),
-              repos.orders.list(),
-            ]);
+          const [
+            waiters,
+            products,
+            categories,
+            stations,
+            tables,
+            checks,
+            orders,
+            removals,
+          ] = await Promise.all([
+            repos.waiters.list(),
+            repos.products.list(),
+            repos.products.categories(),
+            repos.stations.list(),
+            repos.tables.list(),
+            repos.checks.list(),
+            repos.orders.list(),
+            repos.removals.list(),
+          ]);
           set({
             waiters,
             products,
@@ -201,18 +245,20 @@ export const useAppStore = create<AppState>()(
             tables,
             checks,
             orders,
+            removals,
             loaded: true,
           });
         },
 
         refresh: async () => {
-          const [waiters, tables, checks, orders] = await Promise.all([
+          const [waiters, tables, checks, orders, removals] = await Promise.all([
             repos.waiters.list(),
             repos.tables.list(),
             repos.checks.list(),
             repos.orders.list(),
+            repos.removals.list(),
           ]);
-          set({ waiters, tables, checks, orders });
+          set({ waiters, tables, checks, orders, removals });
         },
 
         setHydrated: () => set({ hydrated: true }),
@@ -283,13 +329,23 @@ export const useAppStore = create<AppState>()(
           }
         },
 
-        sendOrder: async (checkId) => {
+        setDraftItemNote: async (checkId, key, notes) => {
+          try {
+            const check = await repos.checks.setDraftItemNote(checkId, key, notes);
+            set((s) => ({ checks: upsertCheck(s.checks, check) }));
+          } catch (e) {
+            await handleMutationError(e, checkId);
+          }
+        },
+
+        sendOrder: async (checkId, priority) => {
           const current = get().checks.find((c) => c.id === checkId);
           if (!current) return false;
           try {
             const { check, order } = await repos.checks.sendOrder(
               checkId,
               current.version,
+              { priority },
             );
             set((s) => ({
               checks: upsertCheck(s.checks, check),
@@ -327,30 +383,19 @@ export const useAppStore = create<AppState>()(
           }
         },
 
-        registerPayment: async (checkId, method, simulateFiscalError) => {
+        registerPayment: async (checkId, input) => {
           const current = get().checks.find((c) => c.id === checkId);
           if (!current) return false;
           try {
             const check = await repos.checks.registerPayment(
               checkId,
-              method,
+              input,
               current.version,
-              { simulateFiscalError },
             );
             set((s) => ({ checks: upsertCheck(s.checks, check) }));
             return true;
           } catch (e) {
             return handleMutationError(e, checkId);
-          }
-        },
-
-        retryFiscal: async (checkId) => {
-          try {
-            const check = await repos.checks.retryFiscal(checkId);
-            set((s) => ({ checks: upsertCheck(s.checks, check) }));
-            get().pushToast("Reemitindo documento fiscal…");
-          } catch (e) {
-            await handleMutationError(e, checkId);
           }
         },
 
@@ -377,6 +422,57 @@ export const useAppStore = create<AppState>()(
           try {
             const order = await repos.orders.advanceItem(orderId, itemId, to);
             set((s) => ({ orders: upsertOrder(s.orders, order) }));
+          } catch (e) {
+            await handleMutationError(e);
+          }
+        },
+
+        requestRemoval: async (orderId, orderItemId, reason) => {
+          const { session } = get();
+          const waiterId =
+            session && session.role !== "station" ? session.waiterId : null;
+          if (!waiterId) return false;
+          try {
+            const removal = await repos.removals.request(
+              orderId,
+              orderItemId,
+              reason,
+              waiterId,
+            );
+            set((s) => ({ removals: upsertRemoval(s.removals, removal) }));
+            get().pushToast("Solicitação de remoção enviada");
+            return true;
+          } catch (e) {
+            return handleMutationError(e);
+          }
+        },
+
+        approveRemoval: async (id, note) => {
+          const { session } = get();
+          const managerId = session?.role === "manager" ? session.waiterId : "";
+          try {
+            const { removal, order } = await repos.removals.approve(
+              id,
+              managerId,
+              note,
+            );
+            set((s) => ({
+              removals: upsertRemoval(s.removals, removal),
+              orders: upsertOrder(s.orders, order),
+            }));
+            get().pushToast("Item removido da comanda");
+          } catch (e) {
+            await handleMutationError(e);
+          }
+        },
+
+        rejectRemoval: async (id, note) => {
+          const { session } = get();
+          const managerId = session?.role === "manager" ? session.waiterId : "";
+          try {
+            const removal = await repos.removals.reject(id, managerId, note);
+            set((s) => ({ removals: upsertRemoval(s.removals, removal) }));
+            get().pushToast("Solicitação rejeitada");
           } catch (e) {
             await handleMutationError(e);
           }
@@ -425,8 +521,6 @@ export const useAppStore = create<AppState>()(
               break;
             case "check.updated":
             case "check.checkout_started":
-            case "payment.created":
-            case "fiscal.error":
               set((s) => ({
                 checks: upsertCheck(s.checks, event.payload.check),
               }));
@@ -439,8 +533,49 @@ export const useAppStore = create<AppState>()(
               break;
             case "order_item.received":
             case "order_item.preparing":
-            case "order_item.ready":
               set((s) => ({
+                orders: upsertOrder(s.orders, event.payload.order),
+              }));
+              break;
+            case "order_item.ready": {
+              const order = event.payload.order;
+              set((s) => ({ orders: upsertOrder(s.orders, order) }));
+              // Alert the assigned waiter once the WHOLE order is ready. Only
+              // the last item to flip satisfies this, so it fires exactly once.
+              const { session, notifications } = get();
+              const mine =
+                session?.role === "waiter" && order.waiterId === session.waiterId;
+              const already = notifications.some((n) => n.orderId === order.id);
+              if (mine && !already && isOrderReady(order)) {
+                set((s) => ({
+                  notifications: [
+                    {
+                      id: "ntf-" + uid(),
+                      orderId: order.id,
+                      tableId: order.tableId,
+                      tableNum: order.tableNum,
+                      orderSeq: order.seq,
+                      createdAt: new Date().toISOString(),
+                      read: false,
+                    },
+                    ...s.notifications,
+                  ],
+                }));
+                get().pushToast(
+                  `Mesa ${order.tableNum} · Pedido #${order.seq} pronto`,
+                );
+              }
+              break;
+            }
+            case "removal.requested":
+            case "removal.rejected":
+              set((s) => ({
+                removals: upsertRemoval(s.removals, event.payload.removal),
+              }));
+              break;
+            case "removal.approved":
+              set((s) => ({
+                removals: upsertRemoval(s.removals, event.payload.removal),
                 orders: upsertOrder(s.orders, event.payload.order),
               }));
               break;
@@ -461,6 +596,19 @@ export const useAppStore = create<AppState>()(
           toastTimer = setTimeout(() => set({ toast: null }), 2200);
         },
         clearToast: () => set({ toast: null }),
+
+        markTableNotificationsRead: (tableId) =>
+          set((s) =>
+            s.notifications.some((n) => n.tableId === tableId && !n.read)
+              ? {
+                  notifications: s.notifications.map((n) =>
+                    n.tableId === tableId ? { ...n, read: true } : n,
+                  ),
+                }
+              : {},
+          ),
+
+        clearNotifications: () => set({ notifications: [] }),
       };
     },
     {
@@ -473,6 +621,9 @@ export const useAppStore = create<AppState>()(
         session: s.session,
         tablesVariant: s.tablesVariant,
         checkVariant: s.checkVariant,
+        // Ready-order alerts survive a refresh — losing them on an accidental
+        // reload would mean silently dropping food waiting at the pass.
+        notifications: s.notifications,
       }),
       skipHydration: true,
     },

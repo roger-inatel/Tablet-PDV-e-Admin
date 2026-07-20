@@ -1,4 +1,10 @@
-import type { Check, CheckStatus, OrderItemStatus } from "@/types";
+import type {
+  Check,
+  CheckStatus,
+  OrderItem,
+  OrderItemStatus,
+  RemovalRequest,
+} from "@/types";
 import { ConflictError, InvalidTransitionError } from "@/lib/api/errors";
 
 // State machines of the domain. Enforced by the mock repos and exported to
@@ -91,12 +97,27 @@ export function assertCanRegisterPayment(check: Check): void {
   }
 }
 
-export function assertCanRetryFiscal(check: Check): void {
-  if (check.fiscal?.status !== "ERROR") {
-    throw new InvalidTransitionError(
-      "Fiscal",
-      check.fiscal?.status ?? "inexistente",
-      "retry",
-    );
+/** A removal can only be requested on an open check for a non-voided item
+ *  without an already-pending request. */
+export function assertCanRequestRemoval(
+  check: Check,
+  item: OrderItem,
+  hasPending: boolean,
+): void {
+  if (check.status !== "OPEN") {
+    throw new InvalidTransitionError("Comanda", check.status, "solicitar remoção");
+  }
+  if (item.voided) {
+    throw new InvalidTransitionError("Item", "removido", "solicitar remoção");
+  }
+  if (hasPending) {
+    throw new InvalidTransitionError("Item", "com remoção pendente", "solicitar remoção");
+  }
+}
+
+/** A removal decision (approve/reject) is only valid while it is pending. */
+export function assertCanDecideRemoval(removal: RemovalRequest): void {
+  if (removal.status !== "PENDING") {
+    throw new InvalidTransitionError("Remoção", removal.status, "decidir");
   }
 }

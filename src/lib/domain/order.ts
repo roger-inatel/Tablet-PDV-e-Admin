@@ -1,11 +1,14 @@
 import type {
+  AdjustmentKind,
   Check,
   DraftItem,
   Order,
   OrderItem,
   OrderItemStatus,
+  OrderPriority,
   Product,
   Station,
+  TenderInput,
 } from "@/types";
 import { uid } from "@/lib/format";
 
@@ -20,14 +23,92 @@ export function itemsTotal(
   return items.reduce((sum, it) => sum + it.unitPrice * it.qty, 0);
 }
 
-/** Charged amount at checkout: dispatched items only (never drafts). */
+/** Non-voided items of an order (approved removals are excluded everywhere). */
+export function activeItems(order: Order): OrderItem[] {
+  return order.items.filter((it) => !it.voided);
+}
+
+/** Charged amount at checkout: dispatched, non-voided items only (never drafts). */
 export function chargedTotal(orders: Order[]): number {
-  return orders.reduce((sum, o) => sum + itemsTotal(o.items), 0);
+  return orders.reduce((sum, o) => sum + itemsTotal(activeItems(o)), 0);
 }
 
 /** Displayed running total: drafts + dispatched items. */
 export function checkTotal(check: Check, orders: Order[]): number {
   return itemsTotal(check.draftItems) + chargedTotal(orders);
+}
+
+// ---- settlement (cashier: discount / service fee / split tenders) -----------
+
+function round2(n: number): number {
+  return Math.round((n + Number.EPSILON) * 100) / 100;
+}
+
+/** Absolute discount from a value/percent input, clamped to [0, subtotal]. */
+export function computeDiscount(
+  subtotal: number,
+  kind: AdjustmentKind,
+  input: number,
+): number {
+  const raw = kind === "percent" ? (subtotal * input) / 100 : input;
+  return round2(Math.min(Math.max(0, raw), subtotal));
+}
+
+/** Absolute service fee from a value/percent input over the base (subtotal). */
+export function computeServiceFee(
+  base: number,
+  kind: AdjustmentKind,
+  input: number,
+): number {
+  const raw = kind === "percent" ? (base * input) / 100 : input;
+  return round2(Math.max(0, raw));
+}
+
+/** Amount actually charged: subtotal minus discount plus service fee. */
+export function settlementTotal(
+  subtotal: number,
+  discount: number,
+  serviceFee: number,
+): number {
+  return round2(Math.max(0, subtotal - discount + serviceFee));
+}
+
+export function tendersPaid(tenders: { amount: number }[]): number {
+  return round2(tenders.reduce((sum, t) => sum + (t.amount || 0), 0));
+}
+
+/** Change due (troco) — only ever positive when overpaid, always in cash. */
+export function computeChange(
+  total: number,
+  tenders: { amount: number }[],
+): number {
+  return round2(Math.max(0, tendersPaid(tenders) - total));
+}
+
+/**
+ * Validates a settlement before charging. Overpayment is allowed only in cash
+ * (non-cash tenders must not exceed the total), every tender must be positive,
+ * and the total tendered must cover the bill.
+ */
+export function validateSettlement(
+  total: number,
+  tenders: TenderInput[],
+): { ok: boolean; reason?: string } {
+  if (tenders.length === 0) {
+    return { ok: false, reason: "Adicione ao menos uma forma de pagamento" };
+  }
+  if (tenders.some((t) => !(t.amount > 0))) {
+    return { ok: false, reason: "Todos os valores devem ser maiores que zero" };
+  }
+  const paid = tendersPaid(tenders);
+  if (paid + 1e-6 < total) {
+    return { ok: false, reason: "Valor recebido menor que o total" };
+  }
+  const nonCash = tendersPaid(tenders.filter((t) => t.method !== "cash"));
+  if (nonCash > total + 1e-6) {
+    return { ok: false, reason: "Troco somente em dinheiro" };
+  }
+  return { ok: true };
 }
 
 // ---- drafts ----------------------------------------------------------------
@@ -74,18 +155,63 @@ export function draftsToOrderItems(drafts: DraftItem[]): OrderItem[] {
     station: d.station,
     qty: d.qty,
     status: "SENT" as OrderItemStatus,
+    notes: d.notes?.trim() || undefined,
   }));
+}
+
+/** Set/replace the note of a draft line by key. */
+export function setDraftNote(
+  drafts: DraftItem[],
+  key: string,
+  notes: string,
+): DraftItem[] {
+  const trimmed = notes.trim();
+  return drafts.map((d) =>
+    d.key === key ? { ...d, notes: trimmed || undefined } : d,
+  );
+}
+
+/** Priority rank for sorting (higher = more urgent). */
+export function priorityRank(priority: OrderPriority | undefined): number {
+  switch (priority) {
+    case "urgente":
+      return 2;
+    case "alta":
+      return 1;
+    default:
+      return 0;
+  }
 }
 
 // ---- station views ---------------------------------------------------------
 
 export function stationItems(order: Order, station: Station): OrderItem[] {
-  return order.items.filter((it) => it.station === station);
+  return order.items.filter((it) => it.station === station && !it.voided);
 }
 
-/** Does this order have anything for the station at all? */
+/** Does this order have any active item for the station at all? */
 export function belongsToStation(order: Order, station: Station): boolean {
-  return order.items.some((it) => it.station === station);
+  return order.items.some((it) => it.station === station && !it.voided);
+}
+
+/** Is every (non-voided) item of the order ready to be delivered? */
+export function isOrderReady(order: Order): boolean {
+  const items = activeItems(order);
+  return items.length > 0 && items.every((it) => it.status === "READY");
+}
+
+/**
+ * When this station finished the order — the most recent `readyAt` among its
+ * active items. Drives the "Pronto" column, where the freshest plate matters
+ * more than the oldest. Falls back to `createdAt` for legacy rows.
+ */
+export function stationReadyAt(order: Order, station: Station): number {
+  const times = stationItems(order, station)
+    .map((it) => (it.readyAt ? new Date(it.readyAt).getTime() : 0))
+    .filter((t) => t > 0);
+  return times.length > 0
+    ? Math.max(...times)
+    : new Date(order.createdAt).getTime();
 }
 
 /**

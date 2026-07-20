@@ -10,7 +10,7 @@ import type {
   WaiterStatus,
 } from "@/types";
 import { checkTotal } from "@/lib/domain/order";
-import { belongsToStation, stationStage } from "@/lib/domain/order";
+import { belongsToStation, priorityRank, stationStage } from "@/lib/domain/order";
 
 // Pure derivations over the store state (call inside useMemo).
 
@@ -49,6 +49,8 @@ export interface TableView {
   total: number;
   itemCount: number;
   inCheckout: boolean;
+  /** Checkout requested → payment is the cashier's job; tile is read-only. */
+  locked: boolean;
 }
 
 export function tableViews(
@@ -64,7 +66,14 @@ export function tableViews(
   return tables.map((table) => {
     const check = checkById(checks, table.checkId);
     if (!check) {
-      return { table, kind: "free", total: 0, itemCount: 0, inCheckout: false };
+      return {
+        table,
+        kind: "free",
+        total: 0,
+        itemCount: 0,
+        inCheckout: false,
+        locked: false,
+      };
     }
     const checkOrders = ordersOfCheck(orders, check.id);
     const itemCount =
@@ -78,6 +87,7 @@ export function tableViews(
       total: checkTotal(check, checkOrders),
       itemCount,
       inCheckout: check.status === "IN_CHECKOUT",
+      locked: check.status === "IN_CHECKOUT",
     };
   });
 }
@@ -94,16 +104,22 @@ export interface KdsCard {
   stage: OrderItemStatus;
 }
 
-/** Station queue: orders with items for this station. */
+/**
+ * Station queue: orders with items for this station, ordered by priority
+ * (urgente > alta > normal) then oldest-first within the same priority.
+ */
 export function kdsQueue(orders: Order[], station: Station): KdsCard[] {
   return orders
     .filter((o) => belongsToStation(o, station))
     .map((o) => ({ order: o, stage: stationStage(o, station)! }))
-    .sort(
-      (a, b) =>
+    .sort((a, b) => {
+      const pr = priorityRank(b.order.priority) - priorityRank(a.order.priority);
+      if (pr !== 0) return pr;
+      return (
         new Date(a.order.createdAt).getTime() -
-        new Date(b.order.createdAt).getTime(),
-    );
+        new Date(b.order.createdAt).getTime()
+      );
+    });
 }
 
 // ---- admin ------------------------------------------------------------------
@@ -114,10 +130,6 @@ export function activeChecks(checks: Check[]): Check[] {
 
 export function checksInCheckout(checks: Check[]): Check[] {
   return checks.filter((c) => c.status === "IN_CHECKOUT");
-}
-
-export function checksWithFiscalError(checks: Check[]): Check[] {
-  return checks.filter((c) => c.fiscal?.status === "ERROR");
 }
 
 export function outstandingTotal(checks: Check[], orders: Order[]): number {

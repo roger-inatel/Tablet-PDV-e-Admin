@@ -2,7 +2,6 @@ import type {
   Check,
   CheckStatus,
   ChipKind,
-  FiscalStatus,
   Order,
   OrderItemStatus,
   PaymentMethod,
@@ -43,20 +42,6 @@ export function orderItemStatusMeta(status: OrderItemStatus): {
   }
 }
 
-export function fiscalStatusMeta(status: FiscalStatus): {
-  kind: ChipKind;
-  label: string;
-} {
-  switch (status) {
-    case "PROCESSING":
-      return { kind: "blue", label: "Emitindo NFC-e…" };
-    case "ISSUED":
-      return { kind: "green", label: "NFC-e emitida" };
-    case "ERROR":
-      return { kind: "red", label: "Erro fiscal" };
-  }
-}
-
 export const PAYMENT_METHOD_LABEL: Record<PaymentMethod, string> = {
   cash: "Dinheiro",
   card: "Cartão",
@@ -76,7 +61,10 @@ export function checkItemCounts(
   };
   for (const o of orders) {
     if (o.checkId !== check.id) continue;
-    for (const it of o.items) byStatus[it.status] += it.qty;
+    for (const it of o.items) {
+      if (it.voided) continue;
+      byStatus[it.status] += it.qty;
+    }
   }
   const toSend = check.draftItems.reduce((s, d) => s + d.qty, 0);
   return { toSend, byStatus };

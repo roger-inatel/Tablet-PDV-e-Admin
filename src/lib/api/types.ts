@@ -4,8 +4,10 @@ import type {
   CheckStatus,
   Order,
   OrderItemStatus,
-  PaymentMethod,
+  OrderPriority,
   Product,
+  RegisterPaymentInput,
+  RemovalRequest,
   Station,
   StationConfig,
   Table,
@@ -52,24 +54,24 @@ export interface ChecksRepo {
   /** Draft edits (no expectedVersion — drafts are low-stakes). */
   addDraftItem(checkId: string, productId: string): Promise<Check>;
   setDraftQty(checkId: string, key: string, delta: 1 | -1): Promise<Check>;
-  /** Dispatch all drafts as one order. -> POST /checks/:id/orders */
+  /** Set a kitchen/bar observation on a draft line. */
+  setDraftItemNote(checkId: string, key: string, notes: string): Promise<Check>;
+  /** Dispatch all drafts as one order (with optional priority). -> POST /checks/:id/orders */
   sendOrder(
     checkId: string,
     expectedVersion: number,
+    opts?: { priority?: OrderPriority },
   ): Promise<{ check: Check; order: Order }>;
   /** OPEN -> IN_CHECKOUT. -> POST /checks/:id/checkout */
   startCheckout(checkId: string, expectedVersion: number): Promise<Check>;
   /** IN_CHECKOUT -> OPEN (only while payment === null). */
   cancelCheckout(checkId: string): Promise<Check>;
-  /** Creates payment + starts async fiscal issuance. `simulateFiscalError` is mock-only. */
+  /** Registers payment (settlement) and closes the check (frees the table). */
   registerPayment(
     checkId: string,
-    method: PaymentMethod,
+    input: RegisterPaymentInput,
     expectedVersion: number,
-    opts?: { simulateFiscalError?: boolean },
   ): Promise<Check>;
-  /** Re-run fiscal issuance after ERROR. -> POST /checks/:id/fiscal/retry */
-  retryFiscal(checkId: string): Promise<Check>;
   /** Reassign the responsible waiter (manager). -> PATCH /checks/:id/waiter */
   transfer(checkId: string, waiterId: string): Promise<Check>;
 }
@@ -87,6 +89,25 @@ export interface OrdersRepo {
   ): Promise<Order>;
 }
 
+export interface RemovalsRepo {
+  list(): Promise<RemovalRequest[]>;
+  /** Waiter requests removal of a dispatched item. -> POST /removals */
+  request(
+    orderId: string,
+    orderItemId: string,
+    reason: string,
+    waiterId: string,
+  ): Promise<RemovalRequest>;
+  /** Manager approves: voids the item + closes the audit record. -> POST /removals/:id/approve */
+  approve(
+    id: string,
+    managerId: string,
+    note?: string,
+  ): Promise<{ removal: RemovalRequest; order: Order }>;
+  /** Manager rejects: audit record only. -> POST /removals/:id/reject */
+  reject(id: string, managerId: string, note?: string): Promise<RemovalRequest>;
+}
+
 export interface Repos {
   waiters: WaitersRepo;
   products: ProductsRepo;
@@ -94,4 +115,5 @@ export interface Repos {
   tables: TablesRepo;
   checks: ChecksRepo;
   orders: OrdersRepo;
+  removals: RemovalsRepo;
 }

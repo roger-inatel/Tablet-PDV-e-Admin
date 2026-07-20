@@ -36,9 +36,10 @@ class BroadcastRealtimeClient implements RealtimeClient {
     this.channel?.postMessage(event);
     // LOCAL ECHO — deliberate. BroadcastChannel excludes the sender tab, so we
     // loop the event back to our own subscribers. Combined with the store's
-    // `version >` guard this is what lets server-initiated updates (the async
-    // fiscal timer) reach the tab that triggered them. Do NOT "simplify" this
-    // into skip-when-origin-is-mine: that would break the fiscal flow.
+    // `version >` guard, this is what lets side effects carried by an event
+    // (e.g. `check.closed` freeing the table) reach the tab that triggered it —
+    // repo actions only apply their own return value. Do NOT "simplify" this
+    // into skip-when-origin-is-mine.
     this.dispatch(event);
   }
 

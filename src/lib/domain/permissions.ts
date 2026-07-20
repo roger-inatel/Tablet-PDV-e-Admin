@@ -42,19 +42,14 @@ export function canStartCheckout(s: Session | null, c: Check): boolean {
   return actor && c.status === "OPEN" && c.draftItems.length === 0;
 }
 
+/** Registering payment is a cashier/manager operation ONLY — never the waiter. */
 export function canRegisterPayment(s: Session | null, c: Check): boolean {
-  const actor = isAssignedWaiter(s, c) || s?.role === "manager";
-  return actor && c.status === "IN_CHECKOUT" && c.payment === null;
+  return s?.role === "manager" && c.status === "IN_CHECKOUT" && c.payment === null;
 }
 
+/** Reopening a checkout is a cashier/manager operation ONLY. */
 export function canCancelCheckout(s: Session | null, c: Check): boolean {
-  const actor = isAssignedWaiter(s, c) || s?.role === "manager";
-  return actor && c.status === "IN_CHECKOUT" && c.payment === null;
-}
-
-/** Fiscal retry is a manager/cashier operation. */
-export function canRetryFiscal(s: Session | null, c: Check): boolean {
-  return s?.role === "manager" && c.fiscal?.status === "ERROR";
+  return s?.role === "manager" && c.status === "IN_CHECKOUT" && c.payment === null;
 }
 
 /** Reassigning the responsible waiter is a manager operation. */
@@ -65,4 +60,26 @@ export function canTransferCheck(s: Session | null): boolean {
 /** KDS: a station may only advance items routed to itself. */
 export function canAdvanceItem(s: Session | null, item: OrderItem): boolean {
   return s?.role === "station" && item.station === s.station;
+}
+
+/**
+ * Only the assigned waiter can REQUEST removal of a dispatched item (never
+ * remove it directly), while the check is still open and the item isn't voided.
+ */
+export function canRequestRemoval(
+  s: Session | null,
+  c: Check,
+  item: OrderItem,
+): boolean {
+  return isAssignedWaiter(s, c) && c.status === "OPEN" && !item.voided;
+}
+
+/** Only a manager can view the removal queue / audit. */
+export function canViewRemovals(s: Session | null): boolean {
+  return s?.role === "manager";
+}
+
+/** Only a manager can approve or reject a removal request. */
+export function canApproveRemoval(s: Session | null): boolean {
+  return s?.role === "manager";
 }
