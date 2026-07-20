@@ -1,41 +1,42 @@
-import type { Check, Order, Table, Waiter } from "@/types";
+import type { Check, Order, RemovalRequest, Table, Waiter } from "@/types";
 import { WAITERS } from "@/data/waiters";
 import { seedTables } from "@/data/tables";
-import { seedChecks } from "@/data/checks";
-import { seedOrders } from "@/data/orders";
 
-// Mock database: ONE atomic localStorage blob, read-through on every repo
-// operation so concurrent tabs always see the latest state. Mutable entities
-// only — products/stations are static reference data read from src/data.
+// Local operational store: ONE atomic localStorage blob, read-through on every
+// repo operation so concurrent tabs always see the latest state. It holds only
+// what the ERP has no home for (floor plan, checks, KDS orders, removals) —
+// products come from the real database. There is NO demo data: the app starts
+// with every table free and fills up from real usage.
 
 export interface MockDb {
   tables: Table[];
   checks: Check[];
   orders: Order[];
   waiters: Waiter[];
+  removals: RemovalRequest[];
 }
 
-const KEY = "mesaplus.db.v3";
+// v4 drops the demo dataset — bumping the key makes existing browsers reseed
+// instead of keeping the old fake checks/orders around.
+const KEY = "mesaplus.db.v4";
 const LEGACY_KEYS = [
   "mesaplus.tables.v1",
   "mesaplus.session.v1",
   "mesaplus.db.v2",
   "mesaplus.session.v2",
+  "mesaplus.db.v3",
 ];
 
 /** In-memory fallback for SSR / first paint (never persisted server-side). */
 let memory: MockDb | null = null;
 
 function buildSeed(): MockDb {
-  // Timestamps are computed ONCE at db init (client-side, post-hydration) so
-  // KDS elapsed-time displays stay meaningful, then persisted with the blob.
-  const now = Date.now();
-  const minutesAgo = (n: number) => new Date(now - n * 60_000).toISOString();
   return {
     tables: seedTables(),
-    checks: seedChecks(minutesAgo),
-    orders: seedOrders(minutesAgo),
+    checks: [],
+    orders: [],
     waiters: WAITERS.map((w) => ({ ...w })),
+    removals: [],
   };
 }
 
@@ -55,7 +56,12 @@ export function loadDb(): MockDb {
   }
   try {
     const raw = window.localStorage.getItem(KEY);
-    if (raw) return JSON.parse(raw) as MockDb;
+    if (raw) {
+      // Non-destructive: older blobs predate the `removals` slice — default it
+      // so adding the feature never wipes the running demo state.
+      const parsed = JSON.parse(raw) as Partial<MockDb>;
+      return { ...(parsed as MockDb), removals: parsed.removals ?? [] };
+    }
   } catch {
     /* corrupted blob -> reseed */
   }
