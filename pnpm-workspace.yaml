@@ -2,6 +2,7 @@
 # Dependencies allowed to run postinstall build scripts:
 allowBuilds:
   '@prisma/engines': true
+  core-js: false
   prisma: true
   sharp: true
   unrs-resolver: true

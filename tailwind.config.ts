@@ -1,7 +1,9 @@
 import type { Config } from "tailwindcss";
 
 const config: Config = {
-  content: ["./src/**/*.{ts,tsx}"],
+  // Exclude the generated Prisma client — those files are huge and contain no
+  // Tailwind classes; scanning them overflows the JIT class extractor.
+  content: ["./src/**/*.{ts,tsx}", "!./src/generated/**"],
   theme: {
     extend: {
       fontFamily: {
