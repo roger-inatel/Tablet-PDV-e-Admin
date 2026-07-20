@@ -3,6 +3,7 @@
 import { Icon } from "@/components/ui/Icon";
 import { StatusChip } from "@/components/ui/StatusChip";
 import { SegmentedToggle } from "@/components/ui/SegmentedToggle";
+import { NotificationBell } from "@/components/waiter/NotificationBell";
 import { orderItemStatusMeta } from "@/lib/domain/check";
 import type { CheckVariant, ChipKind, OrderItemStatus } from "@/types";
 
@@ -86,6 +87,8 @@ export function CheckHeader({
             ]}
           />
         )}
+        {/* Alerts for the waiter's OTHER tables stay reachable from inside a check. */}
+        <NotificationBell />
       </div>
     </div>
   );

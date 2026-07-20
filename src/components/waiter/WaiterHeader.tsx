@@ -3,6 +3,7 @@
 import { useMemo } from "react";
 import { Avatar } from "@/components/ui/Avatar";
 import { SessionBadge } from "@/components/shell/SessionBadge";
+import { NotificationBell } from "@/components/waiter/NotificationBell";
 import { useAppStore } from "@/store/useAppStore";
 import { myTablesCount, tableViews, waitersById } from "@/store/selectors";
 import { firstName } from "@/lib/format";
@@ -48,6 +49,7 @@ export function WaiterHeader() {
             {myTables}
           </div>
         </div>
+        <NotificationBell />
         <SessionBadge />
       </div>
     </div>
