@@ -12,12 +12,18 @@ Nomenclatura interna 100% em inglês; textos de interface em pt-BR.
 ## Como rodar localmente
 
 ```bash
+cp .env.example .env.local   # preencha DATABASE_URL
 pnpm install
 pnpm dev
 ```
 
 Abra http://localhost:3000 — a raiz leva cada aba para a superfície do seu perfil
 (ou para `/login`).
+
+O `.env` **não é versionado** (só o `.env.example`). O Next carrega
+`.env.local` com prioridade, então use esse arquivo para apontar ao banco
+local sem mexer na configuração dos outros. Provisionamento do banco
+(restauração, massa mestre e tabela de auditoria): ver `docs/CONTRACTS.md` §9.
 
 > ⚠️ Não rode `pnpm build` com o `pnpm dev` aberto (ambos escrevem em `.next`).
 

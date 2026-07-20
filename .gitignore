@@ -19,8 +19,10 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 
-# local env files
+# local env files — never commit real credentials, only .env.example
+.env
 .env*.local
+!.env.example
 
 # vercel
 .vercel
